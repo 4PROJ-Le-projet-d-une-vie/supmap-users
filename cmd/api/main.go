@@ -21,11 +21,11 @@ func main() {
 	})
 	logger := slog.New(handler)
 
-	if err := migrations.Migrate("postgres", "postgres://root:root@localhost:5432/public", logger); err != nil {
+	if err := migrations.Migrate("pgx", "postgres://root:root@localhost:5432/public", logger); err != nil {
 		logger.Error("migration failed", "err", err)
 	}
 
-	conn, err := sql.Open("postgres", "postgres://root:root@localhost:5432/public")
+	conn, err := sql.Open("pgx", "postgres://root:root@localhost:5432/public")
 	if err != nil {
 		log.Fatal(err)
 	}
