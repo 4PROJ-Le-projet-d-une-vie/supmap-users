@@ -1,0 +1,42 @@
+package repository
+
+import (
+	"context"
+	"github.com/uptrace/bun"
+	"log/slog"
+	"supmap-users/internal/models"
+)
+
+type Users struct {
+	log *slog.Logger
+	bun *bun.DB
+}
+
+func NewUsers(db *bun.DB, log *slog.Logger) *Users {
+	return &Users{
+		log: log,
+		bun: db,
+	}
+}
+
+func (u *Users) FindAll(ctx context.Context) ([]models.User, error) {
+	var users []models.User
+	err := u.bun.NewSelect().
+		Model(&users).
+		Relation("Role").
+		Order("id DESC").
+		Scan(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}
+
+func (u *Users) Insert(user *models.User, ctx context.Context) error {
+	if _, err := u.bun.NewInsert().Model(user).Exec(ctx); err != nil {
+		return err
+	}
+	return nil
+}

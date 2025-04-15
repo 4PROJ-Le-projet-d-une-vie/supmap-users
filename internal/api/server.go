@@ -1,30 +1,31 @@
 package api
 
 import (
-	"github.com/uptrace/bun"
 	"log/slog"
 	"net/http"
 	"supmap-users/internal/config"
+	"supmap-users/internal/repository"
 )
 
 type Server struct {
 	Config *config.Config
 	log    *slog.Logger
-	bun    *bun.DB
+	users  *repository.Users
 }
 
-func NewServer(config *config.Config, log *slog.Logger, db *bun.DB) *Server {
+func NewServer(config *config.Config, log *slog.Logger, users *repository.Users) *Server {
 	return &Server{
 		Config: config,
 		log:    log,
-		bun:    db,
+		users:  users,
 	}
 }
 
 func (s *Server) Start() error {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /route", s.GetUsers())
+	mux.HandleFunc("GET /user/all", s.GetUsers())
+	mux.HandleFunc("POST /user", s.CreateUser())
 
 	server := &http.Server{
 		Addr:    ":" + s.Config.PORT,
