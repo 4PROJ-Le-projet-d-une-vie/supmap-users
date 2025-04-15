@@ -27,10 +27,11 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /route", s.GetUsers())
 
 	server := &http.Server{
-		Addr:    s.Config.PORT,
+		Addr:    ":" + s.Config.PORT,
 		Handler: mux,
 	}
 
+	s.log.Info("Starting server on port: " + server.Addr)
 	if err := server.ListenAndServe(); err != nil {
 		return err
 	}
