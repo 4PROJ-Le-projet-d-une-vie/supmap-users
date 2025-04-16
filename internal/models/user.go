@@ -8,14 +8,14 @@ import (
 type User struct {
 	bun.BaseModel `bun:"table:users"`
 
-	ID             int64     `bun:"id,pk,autoincrement"`
-	Email          string    `bun:"email,unique,notnull"`
-	Handle         string    `bun:"handle,unique,notnull"`
-	HashPassword   *string   `bun:"password_hash"`
-	AuthProvider   string    `bun:"auth_provider,notnull,default:'local'"`
-	ProfilePicture *string   `bun:"profile_picture"`
-	RoleID         int64     `bun:"role_id,notnull"`
-	Role           *Role     `bun:"rel:belongs-to,join:role_id=id"`
-	CreatedAt      time.Time `bun:"created_at,notnull,default:current_timestamp"`
-	UpdatedAt      time.Time `bun:"updated_at,notnull,default:current_timestamp"`
+	ID             int64     `bun:"id,pk,autoincrement" json:"id"`
+	Email          string    `bun:"email,unique,notnull" json:"email"`
+	Handle         string    `bun:"handle,unique,notnull" json:"handle"`
+	HashPassword   *string   `bun:"password_hash" json:"-"`
+	AuthProvider   string    `bun:"auth_provider,notnull,default:'local'" json:"auth_provider"`
+	ProfilePicture *string   `bun:"profile_picture" json:"profile_picture"`
+	RoleID         int64     `bun:"role_id,notnull" json:"-"`
+	Role           *Role     `bun:"rel:belongs-to,join:role_id=id" json:"role"`
+	CreatedAt      time.Time `bun:"created_at,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt      time.Time `bun:"updated_at,notnull,default:current_timestamp" json:"updated_at"`
 }
