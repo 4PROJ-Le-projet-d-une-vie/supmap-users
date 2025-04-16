@@ -7,6 +7,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/matheodrd/httphelper/handler"
 	"net/http"
+	"strconv"
 	"supmap-users/internal/models"
 )
 
@@ -25,6 +26,33 @@ func (s *Server) GetUsers() http.HandlerFunc {
 
 		_, err = w.Write(asJson)
 		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+func (s *Server) GetUserById() http.HandlerFunc {
+	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
+		param := r.PathValue("id")
+
+		id, err := strconv.ParseInt(param, 10, 64)
+		if err != nil {
+			return err
+		}
+
+		user, err := s.users.FindByID(r.Context(), id)
+		if err != nil {
+			return err
+		}
+
+		if user == nil {
+			w.WriteHeader(http.StatusNotFound)
+			return nil
+		}
+
+		if err := json.NewEncoder(w).Encode(user); err != nil {
 			return err
 		}
 

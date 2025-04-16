@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"github.com/uptrace/bun"
 	"log/slog"
 	"supmap-users/internal/models"
@@ -32,6 +34,25 @@ func (u *Users) FindAll(ctx context.Context) ([]models.User, error) {
 	}
 
 	return users, nil
+}
+
+func (u *Users) FindByID(ctx context.Context, id int64) (*models.User, error) {
+	var user = &models.User{
+		ID: id,
+	}
+	err := u.bun.NewSelect().
+		Model(user).
+		Relation("Role").
+		WherePK().
+		Scan(ctx)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	return user, nil
 }
 
 func (u *Users) Insert(user *models.User, ctx context.Context) error {

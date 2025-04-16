@@ -25,6 +25,7 @@ func (s *Server) Start() error {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /user/all", s.GetUsers())
+	mux.Handle("GET /user/{id}", s.GetUserById())
 	mux.HandleFunc("POST /user", s.CreateUser())
 
 	server := &http.Server{
