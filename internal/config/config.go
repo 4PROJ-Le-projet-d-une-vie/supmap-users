@@ -6,6 +6,7 @@ import (
 )
 
 type Config struct {
+	ENV   string `env:"ENV" envDefault:"development"`
 	DbUrl string `env:"DB_URL"`
 	PORT  string `env:"PORT"`
 }

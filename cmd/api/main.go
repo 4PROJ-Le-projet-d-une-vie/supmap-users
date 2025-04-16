@@ -6,6 +6,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
+	"github.com/uptrace/bun/extra/bundebug"
 	"log"
 	"log/slog"
 	"os"
@@ -42,6 +43,9 @@ func main() {
 
 	// Create Bun client
 	bunDB := bun.NewDB(conn, pgdialect.New())
+	if conf.ENV == "development" {
+		bunDB.AddQueryHook(bundebug.NewQueryHook(bundebug.WithVerbose(true)))
+	}
 
 	if err := bunDB.Ping(); err != nil {
 		log.Fatal(fmt.Errorf("failed to connect to database: %w", err))
