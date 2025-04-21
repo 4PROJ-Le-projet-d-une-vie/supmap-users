@@ -293,3 +293,41 @@ func buildValidationErrors(w http.ResponseWriter, original error) error {
 
 	return nil // Finally return nil to fully controls HTTP error
 }
+
+func (s *Server) DeleteUser() http.HandlerFunc {
+	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
+		param := r.PathValue("id")
+
+		id, err := strconv.ParseInt(param, 10, 64)
+		if err != nil {
+			return err
+		}
+
+		authUser, ok := r.Context().Value("user").(*models.User)
+		if !ok {
+			s.log.Warn("Unauthenticated request to DELETE /user/" + param)
+			w.WriteHeader(http.StatusUnauthorized)
+
+			if err := json.NewEncoder(w).Encode(handler.Response[struct{}]{Message: "unauthenticated"}); err != nil {
+				return err
+			}
+			return nil
+		}
+
+		if authUser.Role.Name != "ROLE_ADMIN" && authUser.ID != id { // TODO test si le check est bon
+			w.WriteHeader(http.StatusUnauthorized)
+
+			if err := json.NewEncoder(w).Encode(handler.Response[struct{}]{Message: "unauthorized"}); err != nil {
+				return err
+			}
+			return nil
+		}
+
+		if err := s.users.Delete(r.Context(), id); err != nil {
+			return err
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+		return nil
+	})
+}

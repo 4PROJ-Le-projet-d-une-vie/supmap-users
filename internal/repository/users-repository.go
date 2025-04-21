@@ -68,3 +68,17 @@ func (u *Users) Update(user *models.User, ctx context.Context) error {
 	}
 	return nil
 }
+
+func (u *Users) Delete(ctx context.Context, id int64) error {
+	_, err := u.bun.NewDelete().
+		Model(&models.User{}).
+		Where("id = ?", id).
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+
+	// TODO check si aucun delete
+
+	return nil
+}

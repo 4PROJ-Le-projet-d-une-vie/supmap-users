@@ -34,6 +34,8 @@ func (s *Server) Start() error {
 	mux.Handle("PATCH /user/me", s.AuthMiddleware()(s.PatchMe()))
 	mux.Handle("PATCH /user/{id}", s.AuthMiddleware()(s.AdminMiddleware()(s.PatchUser())))
 
+	mux.Handle("DELETE /user/{id}", s.AuthMiddleware()(s.DeleteUser()))
+
 	server := &http.Server{
 		Addr:    ":" + s.Config.PORT,
 		Handler: mux,
