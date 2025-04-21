@@ -61,3 +61,10 @@ func (u *Users) Insert(user *models.User, ctx context.Context) error {
 	}
 	return nil
 }
+
+func (u *Users) Update(user *models.User, ctx context.Context) error {
+	if _, err := u.bun.NewUpdate().Model(user).Exec(ctx); err != nil {
+		return err
+	}
+	return nil
+}

@@ -31,6 +31,9 @@ func (s *Server) Start() error {
 	mux.Handle("POST /register", s.Register())
 	mux.Handle("POST /user", s.AuthMiddleware()(s.AdminMiddleware()(s.CreateUser())))
 
+	mux.Handle("PATCH /user/me", s.AuthMiddleware()(s.PatchMe()))
+	mux.Handle("PATCH /user/{id}", s.AuthMiddleware()(s.AdminMiddleware()(s.PatchUser())))
+
 	server := &http.Server{
 		Addr:    ":" + s.Config.PORT,
 		Handler: mux,
