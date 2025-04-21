@@ -60,6 +60,28 @@ func (s *Server) GetUserById() http.HandlerFunc {
 	})
 }
 
+func (s *Server) GetMe() http.HandlerFunc {
+	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
+		user, ok := r.Context().Value("user").(*models.User)
+		if !ok {
+			s.log.Warn("Unauthenticated request to /user/me")
+			w.WriteHeader(http.StatusUnauthorized)
+
+			if err := json.NewEncoder(w).Encode(handler.Response[struct{}]{Message: "unauthenticated"}); err != nil {
+				return err
+			}
+			return nil
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(user); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
 func (s *Server) CreateUser() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		var body CreateUserValidator
