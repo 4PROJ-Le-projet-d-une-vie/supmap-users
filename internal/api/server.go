@@ -24,8 +24,8 @@ func NewServer(config *config.Config, log *slog.Logger, users *repository.Users)
 func (s *Server) Start() error {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /user/all", s.GetUsers())
-	mux.HandleFunc("GET /user/{id}", s.GetUserById())
+	mux.Handle("GET /user/all", s.AuthMiddleware()(s.AdminMiddleware()(s.GetUsers())))
+	mux.Handle("GET /user/{id}", s.AuthMiddleware()(s.AdminMiddleware()(s.GetUserById())))
 	mux.Handle("GET /user/me", s.AuthMiddleware()(s.GetMe()))
 	mux.HandleFunc("POST /user", s.CreateUser())
 

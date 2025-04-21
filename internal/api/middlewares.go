@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"supmap-users/internal/models"
 )
 
 func (s *Server) AuthMiddleware() func(http.Handler) http.Handler {
@@ -32,6 +33,27 @@ func (s *Server) AuthMiddleware() func(http.Handler) http.Handler {
 			s.log.Debug("user: %+v\n", user) // TODO remove debug
 			ctx := context.WithValue(r.Context(), "user", user)
 			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+func (s *Server) AdminMiddleware() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			user, ok := r.Context().Value("user").(*models.User)
+			if !ok {
+				s.log.Warn("unauthenticated user tried to access admin route")
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			if user.Role == nil || user.Role.Name != "ROLE_ADMIN" {
+				s.log.Warn("Non admin user tried to access admin route")
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			next.ServeHTTP(w, r)
 		})
 	}
 }
