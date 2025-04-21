@@ -82,6 +82,43 @@ func (s *Server) GetMe() http.HandlerFunc {
 	})
 }
 
+func (s *Server) Register() http.HandlerFunc {
+	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
+		var body CreateUserValidator
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			return err
+		}
+
+		validate := validator.New()
+		if err := validate.Struct(body); err != nil {
+			return buildValidationErrors(w, err)
+		}
+
+		toInsertUser := &models.User{
+			Email:        body.Email,
+			Handle:       "@" + body.Handle,
+			HashPassword: &body.Password,
+			RoleID:       2,
+		}
+
+		if err := s.users.Insert(toInsertUser, r.Context()); err != nil {
+			return err
+		}
+
+		insertedUser, err := s.users.FindByID(r.Context(), toInsertUser.ID)
+		if err != nil {
+			return err
+		}
+
+		// TODO maybe directly return token to authenticate toInsertUser after register
+		if err := json.NewEncoder(w).Encode(insertedUser); err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
 func (s *Server) CreateUser() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		var body CreateUserValidator
@@ -91,41 +128,51 @@ func (s *Server) CreateUser() http.HandlerFunc {
 
 		validate := validator.New()
 		if err := validate.Struct(body); err != nil {
-			var validationErrors validator.ValidationErrors
-			errors.As(err, &validationErrors)
-			errs := make(map[string]string)
-
-			for _, fieldErr := range validationErrors {
-				errs[fieldErr.Field()] = fmt.Sprintf("failed on '%s'", fieldErr.Tag())
-			}
-
-			asJson, err := json.Marshal(&ValidationError{
-				Message: "Validation Error",
-				Details: errs,
-			})
-			if err != nil {
-				return fmt.Errorf("failed to encode validation errors: %s", err)
-			}
-
-			w.WriteHeader(http.StatusBadRequest)
-			_, err = w.Write(asJson)
-			if err != nil {
-				return err
-			}
-			return nil
+			return buildValidationErrors(w, err)
 		}
 
-		user := &models.User{
+		toInsertUser := &models.User{
 			Email:        body.Email,
 			Handle:       "@" + body.Handle,
 			HashPassword: &body.Password,
 			RoleID:       1,
 		}
 
-		if err := s.users.Insert(user, r.Context()); err != nil {
+		if err := s.users.Insert(toInsertUser, r.Context()); err != nil {
+			return err
+		}
+
+		insertedUser, err := s.users.FindByID(r.Context(), toInsertUser.ID)
+		if err != nil {
+			return err
+		}
+
+		// TODO directly return user without auto authentication
+		if err := json.NewEncoder(w).Encode(insertedUser); err != nil {
 			return err
 		}
 
 		return nil
 	})
+}
+
+func buildValidationErrors(w http.ResponseWriter, original error) error {
+	var validationErrors validator.ValidationErrors
+	errors.As(original, &validationErrors)
+	errs := make(map[string]string)
+
+	for _, fieldErr := range validationErrors {
+		errs[fieldErr.Field()] = fmt.Sprintf("failed on '%s'", fieldErr.Tag())
+	}
+
+	err := json.NewEncoder(w).Encode(&ValidationError{
+		Message: "Validation Error",
+		Details: errs,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to write validation errors: %s", err)
+	}
+	w.WriteHeader(http.StatusBadRequest)
+
+	return nil // Finally return nil to fully controls HTTP error
 }
