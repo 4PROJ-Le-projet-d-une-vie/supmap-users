@@ -13,6 +13,7 @@ import (
 	"supmap-users/internal/api"
 	"supmap-users/internal/config"
 	"supmap-users/internal/repository"
+	"supmap-users/internal/services"
 	"supmap-users/migrations"
 )
 
@@ -54,8 +55,11 @@ func main() {
 	// Create users repository
 	users := repository.NewUsers(bunDB, logger)
 
+	// Create users service
+	service := services.NewService(logger, conf, users)
+
 	// Create the HTTP server
-	server := api.NewServer(conf, logger, users)
+	server := api.NewServer(conf, logger, service, users)
 	if err := server.Start(); err != nil {
 		log.Fatal(err)
 	}

@@ -9,7 +9,12 @@ import (
 	"net/http"
 	"strconv"
 	"supmap-users/internal/models"
+	"supmap-users/internal/services"
 )
+
+type TokenResponse struct {
+	Token string `json:"token"`
+}
 
 func (s *Server) GetUsers() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
@@ -82,6 +87,44 @@ func (s *Server) GetMe() http.HandlerFunc {
 	})
 }
 
+func (s *Server) login() http.HandlerFunc {
+	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
+		var body LoginValidator
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			return err
+		}
+
+		validate := validator.New()
+		validate.RegisterStructValidation(LoginStructValidation, LoginValidator{})
+		if err := validate.Struct(body); err != nil {
+			return buildValidationErrors(w, err)
+		}
+
+		user, err := s.service.AuthentifyUser(r.Context(), body.Email, body.Handle, body.Password)
+		if err != nil {
+			var authError *services.AuthError
+			if errors.As(err, &authError) {
+				w.WriteHeader(authError.Code)
+				if err := json.NewEncoder(w).Encode(handler.Response[struct{}]{Message: authError.Message}); err != nil {
+					return err
+				}
+				return nil
+			} else {
+				return err
+			}
+		}
+
+		jwtToken, err := s.service.Authenticate(user)
+		if err != nil {
+			return err
+		}
+		if err := json.NewEncoder(w).Encode(TokenResponse{Token: *jwtToken}); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
 func (s *Server) Register() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		var body CreateUserValidator
@@ -110,8 +153,11 @@ func (s *Server) Register() http.HandlerFunc {
 			return err
 		}
 
-		// TODO maybe directly return token to authenticate toInsertUser after register
-		if err := json.NewEncoder(w).Encode(insertedUser); err != nil {
+		jwtToken, err := s.service.Authenticate(insertedUser)
+		if err != nil {
+			return err
+		}
+		if err := json.NewEncoder(w).Encode(TokenResponse{Token: *jwtToken}); err != nil {
 			return err
 		}
 
@@ -147,7 +193,6 @@ func (s *Server) CreateUser() http.HandlerFunc {
 			return err
 		}
 
-		// TODO directly return user without auto authentication
 		if err := json.NewEncoder(w).Encode(insertedUser); err != nil {
 			return err
 		}
@@ -282,6 +327,7 @@ func buildValidationErrors(w http.ResponseWriter, original error) error {
 		errs[fieldErr.Field()] = fmt.Sprintf("failed on '%s'", fieldErr.Tag())
 	}
 
+	w.WriteHeader(http.StatusBadRequest)
 	err := json.NewEncoder(w).Encode(&ValidationError{
 		Message: "Validation Error",
 		Details: errs,
@@ -289,7 +335,6 @@ func buildValidationErrors(w http.ResponseWriter, original error) error {
 	if err != nil {
 		return fmt.Errorf("failed to write validation errors: %s", err)
 	}
-	w.WriteHeader(http.StatusBadRequest)
 
 	return nil // Finally return nil to fully controls HTTP error
 }

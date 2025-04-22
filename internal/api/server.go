@@ -5,19 +5,22 @@ import (
 	"net/http"
 	"supmap-users/internal/config"
 	"supmap-users/internal/repository"
+	"supmap-users/internal/services"
 )
 
 type Server struct {
-	Config *config.Config
-	log    *slog.Logger
-	users  *repository.Users
+	Config  *config.Config
+	log     *slog.Logger
+	service *services.Service
+	users   *repository.Users
 }
 
-func NewServer(config *config.Config, log *slog.Logger, users *repository.Users) *Server {
+func NewServer(config *config.Config, log *slog.Logger, service *services.Service, users *repository.Users) *Server {
 	return &Server{
-		Config: config,
-		log:    log,
-		users:  users,
+		Config:  config,
+		log:     log,
+		service: service,
+		users:   users,
 	}
 }
 
@@ -28,6 +31,7 @@ func (s *Server) Start() error {
 	mux.Handle("GET /user/{id}", s.AuthMiddleware()(s.AdminMiddleware()(s.GetUserById())))
 	mux.Handle("GET /user/me", s.AuthMiddleware()(s.GetMe()))
 
+	mux.Handle("POST /login", s.login())
 	mux.Handle("POST /register", s.Register())
 	mux.Handle("POST /user", s.AuthMiddleware()(s.AdminMiddleware()(s.CreateUser())))
 

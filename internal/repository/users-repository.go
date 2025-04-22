@@ -55,6 +55,39 @@ func (u *Users) FindByID(ctx context.Context, id int64) (*models.User, error) {
 	return user, nil
 }
 
+func (u *Users) FindByEmail(ctx context.Context, email string) (*models.User, error) {
+	var user models.User
+	err := u.bun.NewSelect().
+		Model(&user).
+		Relation("Role").
+		Where("email = ?", email).
+		Scan(ctx)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func (u *Users) FindByHandle(ctx context.Context, handle string) (*models.User, error) {
+	var user models.User
+	err := u.bun.NewSelect().
+		Model(&user).
+		Relation("Role").
+		Where("handle = ?", handle).
+		Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	return &user, nil
+
+}
+
 func (u *Users) Insert(user *models.User, ctx context.Context) error {
 	if _, err := u.bun.NewInsert().Model(user).Exec(ctx); err != nil {
 		return err
