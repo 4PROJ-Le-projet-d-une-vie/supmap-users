@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/go-playground/validator/v10"
 	"github.com/matheodrd/httphelper/handler"
+	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"strconv"
 	"supmap-users/internal/models"
@@ -137,10 +138,16 @@ func (s *Server) Register() http.HandlerFunc {
 			return buildValidationErrors(w, err)
 		}
 
+		hashed, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
+		hashStr := string(hashed)
+
 		toInsertUser := &models.User{
 			Email:        body.Email,
 			Handle:       "@" + body.Handle,
-			HashPassword: &body.Password,
+			HashPassword: &hashStr,
 			RoleID:       2,
 		}
 
@@ -234,7 +241,12 @@ func (s *Server) PatchMe() http.HandlerFunc {
 		}
 
 		if body.Password != nil {
-			toUpdateUser.HashPassword = body.Password // TODO hash password
+			hashed, err := bcrypt.GenerateFromPassword([]byte(*body.Password), bcrypt.DefaultCost)
+			if err != nil {
+				return err
+			}
+			hashStr := string(hashed)
+			toUpdateUser.HashPassword = &hashStr
 		}
 
 		if err := s.users.Update(toUpdateUser, r.Context()); err != nil {
@@ -295,7 +307,12 @@ func (s *Server) PatchUser() http.HandlerFunc {
 		}
 
 		if body.Password != nil {
-			userToUpdate.HashPassword = body.Password // TODO hash password
+			hashed, err := bcrypt.GenerateFromPassword([]byte(*body.Password), bcrypt.DefaultCost)
+			if err != nil {
+				return err
+			}
+			hashStr := string(hashed)
+			userToUpdate.HashPassword = &hashStr
 		}
 
 		if err := s.users.Update(userToUpdate, r.Context()); err != nil {
@@ -359,7 +376,7 @@ func (s *Server) DeleteUser() http.HandlerFunc {
 			return nil
 		}
 
-		if authUser.Role.Name != "ROLE_ADMIN" && authUser.ID != id { // TODO test si le check est bon
+		if authUser.Role.Name != "ROLE_ADMIN" && authUser.ID != id {
 			w.WriteHeader(http.StatusUnauthorized)
 
 			if err := json.NewEncoder(w).Encode(handler.Response[struct{}]{Message: "unauthorized"}); err != nil {
