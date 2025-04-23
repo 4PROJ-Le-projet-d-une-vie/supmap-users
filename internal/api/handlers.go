@@ -303,15 +303,17 @@ func (s *Server) PatchUser() http.HandlerFunc {
 }
 
 func decodeValidationError(err error) validator.ValidationErrors {
-	if validationErrors := new(validator.ValidationErrors); errors.As(err, &validationErrors) {
-		return *validationErrors
+	var ve validator.ValidationErrors
+	if errors.As(err, &ve) {
+		return ve
 	}
 	return nil
 }
 
 func decodeAuthError(err error) *services.AuthError {
-	if authErr := new(services.AuthError); errors.As(err, &authErr) {
-		return authErr
+	var ae *services.AuthError
+	if errors.As(err, &ae) {
+		return ae
 	}
 
 	return nil
