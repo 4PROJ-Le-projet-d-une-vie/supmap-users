@@ -8,6 +8,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"strconv"
+	"supmap-users/internal/api/validations"
 	"supmap-users/internal/models"
 	"supmap-users/internal/services"
 )
@@ -81,7 +82,7 @@ type AuthErrorResponse struct {
 
 func (s *Server) login() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
-		body, err := handler.Decode[LoginValidator](r)
+		body, err := handler.Decode[validations.LoginValidator](r)
 
 		user, err := s.service.AuthenticateWithCredentials(r.Context(), body.Email, body.Handle, body.Password)
 		if err != nil {
@@ -112,39 +113,44 @@ func (s *Server) login() http.HandlerFunc {
 	})
 }
 
+type RegisterResponse struct {
+	User  *models.User `json:"user"`
+	Token *string      `json:"token"`
+}
+
 func (s *Server) Register() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
-		body, err := handler.Decode[CreateUserValidator](r)
+		body, err := handler.Decode[validations.CreateUserValidator](r)
+		if err != nil {
+			if validationErrors := decodeValidationError(err); validationErrors != nil {
+				return buildValidationErrors(w, validationErrors)
+			}
+			return err
+		}
 
-		hashed, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
+		user, err := s.service.RegisterUser(r.Context(), body)
+		if err != nil {
+			if authError := decodeAuthError(err); authError != nil {
+				authErrResponse := AuthErrorResponse{Error: authError.Message}
+				if err := handler.Encode(authErrResponse, authError.Code, w); err != nil {
+					return err
+				}
+				return nil
+			} else {
+				return err
+			}
+		}
+
+		jwtToken, err := s.service.Authenticate(user)
 		if err != nil {
 			return err
 		}
-		hashStr := string(hashed)
 
-		toInsertUser := &models.User{
-			Email:        body.Email,
-			Handle:       "@" + body.Handle,
-			HashPassword: &hashStr,
-			RoleID:       2,
+		registerResponse := RegisterResponse{
+			User:  user,
+			Token: jwtToken,
 		}
-
-		if err := s.users.Insert(toInsertUser, r.Context()); err != nil {
-			return err
-		}
-
-		insertedUser, err := s.users.FindByID(r.Context(), toInsertUser.ID)
-		if err != nil {
-			return err
-		}
-
-		jwtToken, err := s.service.Authenticate(insertedUser)
-		if err != nil {
-			return err
-		}
-
-		tokenResponse := TokenResponse{Token: *jwtToken}
-		if err := handler.Encode[TokenResponse](tokenResponse, http.StatusOK, w); err != nil {
+		if err := handler.Encode[RegisterResponse](registerResponse, http.StatusOK, w); err != nil {
 			return err
 		}
 
@@ -154,7 +160,7 @@ func (s *Server) Register() http.HandlerFunc {
 
 func (s *Server) CreateUser() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
-		body, err := handler.Decode[CreateUserValidator](r)
+		body, err := handler.Decode[validations.CreateUserValidator](r)
 
 		toInsertUser := &models.User{
 			Email:        body.Email,
@@ -189,9 +195,12 @@ func (s *Server) PatchMe() http.HandlerFunc {
 			return nil
 		}
 
-		body, err := handler.Decode[UpdateUserValidator](r)
+		body, err := handler.Decode[validations.UpdateUserValidator](r)
 		if err != nil {
-			return buildValidationErrors(w, err)
+			if validationErrors := decodeValidationError(err); validationErrors != nil {
+				return buildValidationErrors(w, validationErrors)
+			}
+			return err
 		}
 
 		toUpdateUser := &models.User{ID: authUser.ID}
@@ -248,9 +257,12 @@ func (s *Server) PatchUser() http.HandlerFunc {
 			return nil
 		}
 
-		body, err := handler.Decode[UpdateUserValidator](r)
+		body, err := handler.Decode[validations.UpdateUserValidator](r)
 		if err != nil {
-			return buildValidationErrors(w, err)
+			if validationErrors := decodeValidationError(err); validationErrors != nil {
+				return buildValidationErrors(w, validationErrors)
+			}
+			return err
 		}
 
 		userToUpdate := &models.User{ID: id}
@@ -290,17 +302,30 @@ func (s *Server) PatchUser() http.HandlerFunc {
 	})
 }
 
-func buildValidationErrors(w http.ResponseWriter, original error) error {
-	var validationErrors validator.ValidationErrors
-	errors.As(original, &validationErrors)
+func decodeValidationError(err error) validator.ValidationErrors {
+	if validationErrors := new(validator.ValidationErrors); errors.As(err, &validationErrors) {
+		return *validationErrors
+	}
+	return nil
+}
+
+func decodeAuthError(err error) *services.AuthError {
+	if authErr := new(services.AuthError); errors.As(err, &authErr) {
+		return authErr
+	}
+
+	return nil
+}
+
+func buildValidationErrors(w http.ResponseWriter, errors validator.ValidationErrors) error {
 	errs := make(map[string]string)
 
-	for _, fieldErr := range validationErrors {
+	for _, fieldErr := range errors {
 		errs[fieldErr.Field()] = fmt.Sprintf("failed on '%s'", fieldErr.Tag())
 	}
 
-	validationErrorResponse := ValidationError{Message: "Validation Error", Details: errs}
-	err := handler.Encode[ValidationError](validationErrorResponse, http.StatusBadRequest, w)
+	validationErrorResponse := validations.ValidationError{Message: "Validation Error", Details: errs}
+	err := handler.Encode[validations.ValidationError](validationErrorResponse, http.StatusBadRequest, w)
 	if err != nil {
 		return err
 	}

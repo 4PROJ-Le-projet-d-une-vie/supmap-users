@@ -2,8 +2,12 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"github.com/golang-jwt/jwt/v4"
+	"golang.org/x/crypto/bcrypt"
 	"log/slog"
+	"net/http"
+	"supmap-users/internal/api/validations"
 	"supmap-users/internal/config"
 	"supmap-users/internal/models"
 	"supmap-users/internal/repository"
@@ -29,12 +33,75 @@ type AuthError struct {
 	Code    int
 }
 
-func NewAuthError(msg string, code int) error {
-	return &AuthError{msg, code}
-}
-
 func (e AuthError) Error() string {
 	return e.Message
+}
+
+func (s *Service) RegisterUser(ctx context.Context, body validations.CreateUserValidator) (*models.User, error) {
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+	hashStr := string(hashed)
+
+	toInsertUser := &models.User{
+		Email:        body.Email,
+		Handle:       "@" + body.Handle,
+		HashPassword: &hashStr,
+		RoleID:       1,
+	}
+
+	// Email check
+	exists, err := s.users.FindByEmail(ctx, toInsertUser.Email)
+	if err != nil {
+		return nil, err
+	}
+
+	if exists != nil {
+		return nil, &AuthError{
+			Message: "User with this email already exists",
+			Code:    http.StatusConflict,
+		}
+	}
+
+	// Handle check
+	exists, err = s.users.FindByHandle(ctx, toInsertUser.Handle)
+	if err != nil {
+		return nil, err
+	}
+
+	if exists != nil {
+		return nil, &AuthError{
+			Message: fmt.Sprintf("User with handle %q already exists", toInsertUser.Handle),
+			Code:    http.StatusConflict,
+		}
+	}
+
+	// Insert new user
+	if err := s.users.Insert(toInsertUser, ctx); err != nil {
+		return nil, err
+	}
+
+	// Retrieve user with auto associated ID by postgres
+	if &toInsertUser.ID == nil {
+		return nil, &AuthError{
+			Message: "Cannot retrieve user's ID",
+			Code:    http.StatusInternalServerError,
+		}
+	}
+
+	user, err := s.users.FindByID(ctx, toInsertUser.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+var wrongCredentialsError = AuthError{
+	Message: "Wrong credentials",
+	Code:    http.StatusUnauthorized,
 }
 
 func (s *Service) AuthenticateWithCredentials(ctx context.Context, email, handle *string, password string) (*models.User, error) {
@@ -46,7 +113,10 @@ func (s *Service) AuthenticateWithCredentials(ctx context.Context, email, handle
 	} else if handle != nil {
 		user, err = s.users.FindByHandle(ctx, *handle)
 	} else {
-		return nil, NewAuthError("email or handle is missing", 400)
+		return nil, AuthError{
+			Message: "email or handle is missing",
+			Code:    http.StatusBadRequest,
+		}
 	}
 
 	if err != nil {
@@ -54,15 +124,15 @@ func (s *Service) AuthenticateWithCredentials(ctx context.Context, email, handle
 	}
 
 	if user == nil {
-		return nil, NewAuthError("wrong credentials", 401)
+		return nil, wrongCredentialsError
 	}
 
 	if user.HashPassword == nil {
-		return nil, NewAuthError("wrong credentials", 401)
+		return nil, wrongCredentialsError
 	}
 
 	if *user.HashPassword != password {
-		return nil, NewAuthError("wrong credentials", 401)
+		return nil, wrongCredentialsError
 	}
 
 	return user, nil

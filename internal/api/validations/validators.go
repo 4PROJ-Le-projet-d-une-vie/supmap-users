@@ -1,6 +1,8 @@
-package api
+package validations
 
-import "github.com/go-playground/validator/v10"
+import (
+	"github.com/go-playground/validator/v10"
+)
 
 type ValidationError struct {
 	Message string            `json:"message"`
@@ -19,7 +21,7 @@ type CreateUserValidator struct {
 
 func (u CreateUserValidator) Validate() error {
 	validate := validator.New()
-	if err := validate.StructPartial(u); err != nil {
+	if err := validate.Struct(u); err != nil {
 		return err
 	}
 	return nil
