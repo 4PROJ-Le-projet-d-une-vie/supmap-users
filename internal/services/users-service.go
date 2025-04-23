@@ -99,12 +99,12 @@ func (s *Service) RegisterUser(ctx context.Context, body validations.CreateUserV
 	return user, nil
 }
 
-var wrongCredentialsError = AuthError{
+var wrongCredentialsError = &AuthError{
 	Message: "Wrong credentials",
 	Code:    http.StatusUnauthorized,
 }
 
-func (s *Service) AuthenticateWithCredentials(ctx context.Context, email, handle *string, password string) (*models.User, error) {
+func (s *Service) Login(ctx context.Context, email, handle *string, password string) (*models.User, error) {
 
 	var user *models.User
 	var err error
@@ -113,7 +113,7 @@ func (s *Service) AuthenticateWithCredentials(ctx context.Context, email, handle
 	} else if handle != nil {
 		user, err = s.users.FindByHandle(ctx, *handle)
 	} else {
-		return nil, AuthError{
+		return nil, &AuthError{
 			Message: "email or handle is missing",
 			Code:    http.StatusBadRequest,
 		}
@@ -131,7 +131,7 @@ func (s *Service) AuthenticateWithCredentials(ctx context.Context, email, handle
 		return nil, wrongCredentialsError
 	}
 
-	if *user.HashPassword != password {
+	if err := bcrypt.CompareHashAndPassword([]byte(*user.HashPassword), []byte(password)); err != nil {
 		return nil, wrongCredentialsError
 	}
 

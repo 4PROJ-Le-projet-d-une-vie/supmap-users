@@ -31,7 +31,7 @@ func (s *Server) Start() error {
 	mux.Handle("GET /user/{id}", s.AuthMiddleware()(s.AdminMiddleware()(s.GetUserById())))
 	mux.Handle("GET /user/me", s.AuthMiddleware()(s.GetMe()))
 
-	mux.Handle("POST /login", s.login())
+	mux.Handle("POST /login", s.Login())
 	mux.Handle("POST /register", s.Register())
 	mux.Handle("POST /user", s.AuthMiddleware()(s.AdminMiddleware()(s.CreateUser())))
 

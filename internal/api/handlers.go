@@ -80,24 +80,20 @@ type AuthErrorResponse struct {
 	Error string `json:"error"`
 }
 
-func (s *Server) login() http.HandlerFunc {
+func (s *Server) Login() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		body, err := handler.Decode[validations.LoginValidator](r)
 
-		user, err := s.service.AuthenticateWithCredentials(r.Context(), body.Email, body.Handle, body.Password)
+		user, err := s.service.Login(r.Context(), body.Email, body.Handle, body.Password)
 		if err != nil {
-			if authErr := new(services.AuthError); errors.As(err, &authErr) {
-				w.WriteHeader(authErr.Code)
-
+			if authErr := decodeAuthError(err); authErr != nil {
 				authErrResponse := AuthErrorResponse{Error: authErr.Message}
-				if err := handler.Encode(authErrResponse, http.StatusOK, w); err != nil {
+				if err := handler.Encode(authErrResponse, authErr.Code, w); err != nil {
 					return err
 				}
-
 				return nil
-			} else {
-				return err
 			}
+			return err
 		}
 
 		jwtToken, err := s.service.Authenticate(user)
