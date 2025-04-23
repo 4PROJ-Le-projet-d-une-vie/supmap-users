@@ -46,6 +46,15 @@ func (s *Service) GetAllUsers(ctx context.Context) ([]models.User, error) {
 	return users, nil
 }
 
+func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error) {
+	user, err := s.users.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
 func (s *Service) RegisterUser(ctx context.Context, body validations.CreateUserValidator) (*models.User, error) {
 
 	hashed, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)

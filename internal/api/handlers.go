@@ -41,7 +41,7 @@ func (s *Server) GetUserById() http.HandlerFunc {
 			return err
 		}
 
-		user, err := s.users.FindByID(r.Context(), id)
+		user, err := s.service.GetUserByID(r.Context(), id)
 		if err != nil {
 			return err
 		}
