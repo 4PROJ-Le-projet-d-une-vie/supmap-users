@@ -19,8 +19,7 @@ type TokenResponse struct {
 
 func (s *Server) GetUsers() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
-		users, err := s.users.FindAll(r.Context())
-
+		users, err := s.service.GetAllUsers(r.Context())
 		if err != nil {
 			return err
 		}

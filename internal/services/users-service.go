@@ -37,6 +37,15 @@ func (e AuthError) Error() string {
 	return e.Message
 }
 
+func (s *Service) GetAllUsers(ctx context.Context) ([]models.User, error) {
+	users, err := s.users.FindAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}
+
 func (s *Service) RegisterUser(ctx context.Context, body validations.CreateUserValidator) (*models.User, error) {
 
 	hashed, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
