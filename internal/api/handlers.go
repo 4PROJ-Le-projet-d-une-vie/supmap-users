@@ -63,7 +63,6 @@ func (s *Server) GetMe() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		user, ok := r.Context().Value("user").(*models.User)
 		if !ok {
-			s.log.Warn("Unauthenticated request to /user/me")
 			w.WriteHeader(http.StatusUnauthorized)
 			return nil
 		}
