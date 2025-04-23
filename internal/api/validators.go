@@ -17,16 +17,42 @@ type CreateUserValidator struct {
 	Password string `json:"password" validate:"required,min=8"`
 }
 
+func (u CreateUserValidator) Validate() error {
+	validate := validator.New()
+	if err := validate.StructPartial(u); err != nil {
+		return err
+	}
+	return nil
+}
+
 type UpdateUserValidator struct {
 	Email    *string `json:"email" validate:"omitempty,email"`
 	Handle   *string `json:"handle" validate:"omitempty,min=3,startsnotwith=@"`
 	Password *string `json:"password" validate:"omitempty,min=8"`
 }
 
+func (u UpdateUserValidator) Validate() error {
+	validate := validator.New()
+	if err := validate.StructPartial(u); err != nil {
+		return err
+	}
+	return nil
+}
+
 type LoginValidator struct {
 	Email    *string `json:"email" validate:"omitempty,email"`
 	Handle   *string `json:"handle" validate:"omitempty,min=3,startsnotwith=@"`
 	Password string  `json:"password" validate:"required,min=8"`
+}
+
+func (c LoginValidator) Validate() error {
+	validate := validator.New()
+	validate.RegisterStructValidation(LoginStructValidation, LoginValidator{})
+	if err := validate.Struct(c); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func LoginStructValidation(s validator.StructLevel) {

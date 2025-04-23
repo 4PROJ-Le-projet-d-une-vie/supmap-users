@@ -37,7 +37,7 @@ func (e AuthError) Error() string {
 	return e.Message
 }
 
-func (s *Service) AuthentifyUser(ctx context.Context, email, handle *string, password string) (*models.User, error) {
+func (s *Service) AuthenticateWithCredentials(ctx context.Context, email, handle *string, password string) (*models.User, error) {
 
 	var user *models.User
 	var err error

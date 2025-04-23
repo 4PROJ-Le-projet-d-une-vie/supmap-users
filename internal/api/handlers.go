@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/go-playground/validator/v10"
@@ -25,13 +24,7 @@ func (s *Server) GetUsers() http.HandlerFunc {
 			return err
 		}
 
-		asJson, err := json.Marshal(users)
-		if err != nil {
-			return err
-		}
-
-		_, err = w.Write(asJson)
-		if err != nil {
+		if err := handler.Encode[[]models.User](users, http.StatusOK, w); err != nil {
 			return err
 		}
 
@@ -58,7 +51,7 @@ func (s *Server) GetUserById() http.HandlerFunc {
 			return nil
 		}
 
-		if err := json.NewEncoder(w).Encode(user); err != nil {
+		if err := handler.Encode[models.User](*user, http.StatusOK, w); err != nil {
 			return err
 		}
 
@@ -72,43 +65,34 @@ func (s *Server) GetMe() http.HandlerFunc {
 		if !ok {
 			s.log.Warn("Unauthenticated request to /user/me")
 			w.WriteHeader(http.StatusUnauthorized)
-
-			if err := json.NewEncoder(w).Encode(handler.Response[struct{}]{Message: "unauthenticated"}); err != nil {
-				return err
-			}
 			return nil
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		if err := json.NewEncoder(w).Encode(user); err != nil {
+		if err := handler.Encode[models.User](*user, http.StatusOK, w); err != nil {
 			return err
 		}
 		return nil
 	})
 }
 
+type AuthErrorResponse struct {
+	Error string `json:"error"`
+}
+
 func (s *Server) login() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
-		var body LoginValidator
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			return err
-		}
+		body, err := handler.Decode[LoginValidator](r)
 
-		validate := validator.New()
-		validate.RegisterStructValidation(LoginStructValidation, LoginValidator{})
-		if err := validate.Struct(body); err != nil {
-			return buildValidationErrors(w, err)
-		}
-
-		user, err := s.service.AuthentifyUser(r.Context(), body.Email, body.Handle, body.Password)
+		user, err := s.service.AuthenticateWithCredentials(r.Context(), body.Email, body.Handle, body.Password)
 		if err != nil {
-			var authError *services.AuthError
-			if errors.As(err, &authError) {
-				w.WriteHeader(authError.Code)
-				if err := json.NewEncoder(w).Encode(handler.Response[struct{}]{Message: authError.Message}); err != nil {
+			if authErr := new(services.AuthError); errors.As(err, &authErr) {
+				w.WriteHeader(authErr.Code)
+
+				authErrResponse := AuthErrorResponse{Error: authErr.Message}
+				if err := handler.Encode(authErrResponse, http.StatusOK, w); err != nil {
 					return err
 				}
+
 				return nil
 			} else {
 				return err
@@ -119,7 +103,9 @@ func (s *Server) login() http.HandlerFunc {
 		if err != nil {
 			return err
 		}
-		if err := json.NewEncoder(w).Encode(TokenResponse{Token: *jwtToken}); err != nil {
+
+		tokenResponse := TokenResponse{Token: *jwtToken}
+		if err := handler.Encode[TokenResponse](tokenResponse, http.StatusOK, w); err != nil {
 			return err
 		}
 		return nil
@@ -128,15 +114,7 @@ func (s *Server) login() http.HandlerFunc {
 
 func (s *Server) Register() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
-		var body CreateUserValidator
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			return err
-		}
-
-		validate := validator.New()
-		if err := validate.Struct(body); err != nil {
-			return buildValidationErrors(w, err)
-		}
+		body, err := handler.Decode[CreateUserValidator](r)
 
 		hashed, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
 		if err != nil {
@@ -164,7 +142,9 @@ func (s *Server) Register() http.HandlerFunc {
 		if err != nil {
 			return err
 		}
-		if err := json.NewEncoder(w).Encode(TokenResponse{Token: *jwtToken}); err != nil {
+
+		tokenResponse := TokenResponse{Token: *jwtToken}
+		if err := handler.Encode[TokenResponse](tokenResponse, http.StatusOK, w); err != nil {
 			return err
 		}
 
@@ -174,15 +154,7 @@ func (s *Server) Register() http.HandlerFunc {
 
 func (s *Server) CreateUser() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
-		var body CreateUserValidator
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			return handler.NewErrWithStatus(400, fmt.Errorf("failed to decode body: %w", err))
-		}
-
-		validate := validator.New()
-		if err := validate.Struct(body); err != nil {
-			return buildValidationErrors(w, err)
-		}
+		body, err := handler.Decode[CreateUserValidator](r)
 
 		toInsertUser := &models.User{
 			Email:        body.Email,
@@ -200,7 +172,7 @@ func (s *Server) CreateUser() http.HandlerFunc {
 			return err
 		}
 
-		if err := json.NewEncoder(w).Encode(insertedUser); err != nil {
+		if err := handler.Encode[models.User](*insertedUser, http.StatusOK, w); err != nil {
 			return err
 		}
 
@@ -214,20 +186,11 @@ func (s *Server) PatchMe() http.HandlerFunc {
 		if !ok {
 			s.log.Warn("Unauthenticated request to PATCH /user/me")
 			w.WriteHeader(http.StatusUnauthorized)
-
-			if err := json.NewEncoder(w).Encode(handler.Response[struct{}]{Message: "unauthenticated"}); err != nil {
-				return err
-			}
 			return nil
 		}
 
-		var body UpdateUserValidator
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			return err
-		}
-
-		validate := validator.New()
-		if err := validate.StructPartial(body); err != nil {
+		body, err := handler.Decode[UpdateUserValidator](r)
+		if err != nil {
 			return buildValidationErrors(w, err)
 		}
 
@@ -258,8 +221,7 @@ func (s *Server) PatchMe() http.HandlerFunc {
 			return err
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(updatedUser); err != nil {
+		if err := handler.Encode[models.User](*updatedUser, http.StatusOK, w); err != nil {
 			return err
 		}
 
@@ -286,14 +248,8 @@ func (s *Server) PatchUser() http.HandlerFunc {
 			return nil
 		}
 
-		var body UpdateUserValidator
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			http.Error(w, "invalid request body", http.StatusBadRequest)
-			return nil
-		}
-
-		validate := validator.New()
-		if err := validate.Struct(body); err != nil {
+		body, err := handler.Decode[UpdateUserValidator](r)
+		if err != nil {
 			return buildValidationErrors(w, err)
 		}
 
@@ -326,8 +282,7 @@ func (s *Server) PatchUser() http.HandlerFunc {
 			return nil
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(updatedUser); err != nil {
+		if err := handler.Encode[models.User](*updatedUser, http.StatusOK, w); err != nil {
 			return err
 		}
 
@@ -344,13 +299,10 @@ func buildValidationErrors(w http.ResponseWriter, original error) error {
 		errs[fieldErr.Field()] = fmt.Sprintf("failed on '%s'", fieldErr.Tag())
 	}
 
-	w.WriteHeader(http.StatusBadRequest)
-	err := json.NewEncoder(w).Encode(&ValidationError{
-		Message: "Validation Error",
-		Details: errs,
-	})
+	validationErrorResponse := ValidationError{Message: "Validation Error", Details: errs}
+	err := handler.Encode[ValidationError](validationErrorResponse, http.StatusBadRequest, w)
 	if err != nil {
-		return fmt.Errorf("failed to write validation errors: %s", err)
+		return err
 	}
 
 	return nil // Finally return nil to fully controls HTTP error
@@ -369,19 +321,11 @@ func (s *Server) DeleteUser() http.HandlerFunc {
 		if !ok {
 			s.log.Warn("Unauthenticated request to DELETE /user/" + param)
 			w.WriteHeader(http.StatusUnauthorized)
-
-			if err := json.NewEncoder(w).Encode(handler.Response[struct{}]{Message: "unauthenticated"}); err != nil {
-				return err
-			}
 			return nil
 		}
 
 		if authUser.Role.Name != "ROLE_ADMIN" && authUser.ID != id {
 			w.WriteHeader(http.StatusUnauthorized)
-
-			if err := json.NewEncoder(w).Encode(handler.Response[struct{}]{Message: "unauthorized"}); err != nil {
-				return err
-			}
 			return nil
 		}
 
