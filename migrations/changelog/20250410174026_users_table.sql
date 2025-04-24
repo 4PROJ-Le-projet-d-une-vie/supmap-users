@@ -19,8 +19,8 @@ CREATE TABLE users
     profile_picture TEXT,
     role_id         INT         NOT NULL REFERENCES roles (id),
 
-    created_at      TIMESTAMPTZ(0)          DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ(0)          DEFAULT NOW()
+    created_at      TIMESTAMPTZ(0)          DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMPTZ(0)          DEFAULT CURRENT_TIMESTAMP
 );
 
 -- +goose StatementEnd
