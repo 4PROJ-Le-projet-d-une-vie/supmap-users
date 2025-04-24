@@ -15,7 +15,7 @@ func (e ValidationError) Error() string {
 
 type CreateUserValidator struct {
 	Email    string `json:"email" validate:"required,email"`
-	Handle   string `json:"handle" validate:"required,min=3,startsnotwith=@"`
+	Handle   string `json:"handle" validate:"required,lowercase,min=3,startsnotwith=@"`
 	Password string `json:"password" validate:"required,min=8"`
 }
 
