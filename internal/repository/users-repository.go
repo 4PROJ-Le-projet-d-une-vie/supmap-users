@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"github.com/uptrace/bun"
 	"log/slog"
 	"supmap-users/internal/models"
@@ -117,7 +118,14 @@ func (u *Users) Delete(ctx context.Context, id int64) error {
 		return err
 	}
 
-	// TODO check si aucun delete
+	user, err := u.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if user != nil {
+		return fmt.Errorf("user with id %d not deleted", id)
+	}
 
 	return nil
 }
