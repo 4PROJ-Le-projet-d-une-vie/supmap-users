@@ -131,7 +131,7 @@ func (s *Service) doCreateUser(ctx context.Context, partialUser *PartialCreateUs
 
 	toInsertUser := &models.User{
 		Email:        partialUser.Email,
-		Handle:       "@" + partialUser.Handle,
+		Handle:       partialUser.Handle,
 		HashPassword: &hashStr,
 		RoleID:       partialUser.RoleID,
 	}
