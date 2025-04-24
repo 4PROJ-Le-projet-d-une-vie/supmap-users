@@ -16,6 +16,10 @@ type TokenResponse struct {
 	Token string `json:"token"`
 }
 
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
 func (s *Server) GetUsers() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		users, err := s.service.GetAllUsers(r.Context())
@@ -73,10 +77,6 @@ func (s *Server) GetMe() http.HandlerFunc {
 	})
 }
 
-type AuthErrorResponse struct {
-	Error string `json:"error"`
-}
-
 func (s *Server) Login() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		body, err := handler.Decode[validations.LoginValidator](r)
@@ -84,7 +84,7 @@ func (s *Server) Login() http.HandlerFunc {
 		user, err := s.service.Login(r.Context(), body.Email, body.Handle, body.Password)
 		if err != nil {
 			if authErr := decodeAuthError(err); authErr != nil {
-				authErrResponse := AuthErrorResponse{Error: authErr.Message}
+				authErrResponse := ErrorResponse{Error: authErr.Message}
 				if err := handler.Encode(authErrResponse, authErr.Code, w); err != nil {
 					return err
 				}
@@ -124,7 +124,7 @@ func (s *Server) Register() http.HandlerFunc {
 		user, err := s.service.CreateUser(r.Context(), body)
 		if err != nil {
 			if authError := decodeAuthError(err); authError != nil {
-				authErrResponse := AuthErrorResponse{Error: authError.Message}
+				authErrResponse := ErrorResponse{Error: authError.Message}
 				if err := handler.Encode(authErrResponse, authError.Code, w); err != nil {
 					return err
 				}
@@ -164,7 +164,7 @@ func (s *Server) CreateUser() http.HandlerFunc {
 		user, err := s.service.CreateUserForAdmin(r.Context(), body)
 		if err != nil {
 			if authError := decodeAuthError(err); authError != nil {
-				authErrResponse := AuthErrorResponse{Error: authError.Message}
+				authErrResponse := ErrorResponse{Error: authError.Message}
 				if err := handler.Encode(authErrResponse, authError.Code, w); err != nil {
 					return err
 				}
@@ -180,10 +180,6 @@ func (s *Server) CreateUser() http.HandlerFunc {
 
 		return nil
 	})
-}
-
-type UpdateErrorResponse struct {
-	Error string `json:"error"`
 }
 
 func (s *Server) PatchMe() http.HandlerFunc {
@@ -206,7 +202,7 @@ func (s *Server) PatchMe() http.HandlerFunc {
 		if err != nil {
 			if updateErr := decodeUpdateError(err); updateErr != nil {
 
-				updateErrResponse := UpdateErrorResponse{
+				updateErrResponse := ErrorResponse{
 					Error: updateErr.Message,
 				}
 				if err := handler.Encode(updateErrResponse, http.StatusConflict, w); err != nil {
@@ -304,10 +300,6 @@ func buildValidationErrors(w http.ResponseWriter, errors validator.ValidationErr
 	return nil // Finally return nil to fully controls HTTP error
 }
 
-type DeleteErrorResponse struct {
-	Error string `json:"error"`
-}
-
 func (s *Server) DeleteUser() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		param := r.PathValue("id")
@@ -333,8 +325,8 @@ func (s *Server) DeleteUser() http.HandlerFunc {
 			if deleteErr := decodeDeleteError(err); deleteErr != nil {
 				w.WriteHeader(http.StatusNotFound)
 
-				deleteErrResponse := DeleteErrorResponse{Error: deleteErr.Error()}
-				if err := handler.Encode[DeleteErrorResponse](deleteErrResponse, http.StatusInternalServerError, w); err != nil {
+				deleteErrResponse := ErrorResponse{Error: deleteErr.Error()}
+				if err := handler.Encode(deleteErrResponse, http.StatusInternalServerError, w); err != nil {
 
 				}
 
