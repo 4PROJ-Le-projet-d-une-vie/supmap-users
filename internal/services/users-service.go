@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -19,14 +21,16 @@ type Service struct {
 	config *config.Config
 	users  *repository.Users
 	roles  *repository.Roles
+	tokens *repository.Tokens
 }
 
-func NewService(log *slog.Logger, config *config.Config, users *repository.Users, roles *repository.Roles) *Service {
+func NewService(log *slog.Logger, config *config.Config, users *repository.Users, roles *repository.Roles, tokens *repository.Tokens) *Service {
 	return &Service{
 		log:    log,
 		config: config,
 		users:  users,
 		roles:  roles,
+		tokens: tokens,
 	}
 }
 
@@ -340,7 +344,38 @@ func (s *Service) DeleteUser(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (s *Service) Authenticate(user *models.User) (*string, error) {
+func (s *Service) Authenticate(ctx context.Context, user *models.User, ip string) (*string, *string, error) {
+	accessToken, err := s.generateAccessToken(user)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	refreshToken, err := s.generateRefreshToken(64)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = s.tokens.Delete(ctx, user)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	savedToken := &models.Token{
+		UserID:    user.ID,
+		IP:        ip,
+		Token:     *refreshToken,
+		CreatedAt: time.Now(),
+		ExpiresAt: time.Now().Add(24 * 365 * time.Hour),
+	}
+	err = s.tokens.Insert(ctx, savedToken)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return accessToken, refreshToken, nil
+}
+
+func (s *Service) generateAccessToken(user *models.User) (*string, error) {
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"userId": user.ID,
 		"role":   user.Role.Name,
@@ -353,6 +388,15 @@ func (s *Service) Authenticate(user *models.User) (*string, error) {
 		return nil, err
 	}
 
+	return &token, nil
+}
+
+func (s *Service) generateRefreshToken(length int) (*string, error) {
+	bytes := make([]byte, length/2)
+	if _, err := rand.Read(bytes); err != nil {
+		return nil, err
+	}
+	token := hex.EncodeToString(bytes)
 	return &token, nil
 }
 

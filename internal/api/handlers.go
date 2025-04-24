@@ -5,15 +5,18 @@ import (
 	"fmt"
 	"github.com/go-playground/validator/v10"
 	"github.com/matheodrd/httphelper/handler"
+	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"supmap-users/internal/api/validations"
 	"supmap-users/internal/models"
 	"supmap-users/internal/services"
 )
 
 type TokenResponse struct {
-	Token string `json:"token"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 type ErrorResponse struct {
@@ -93,12 +96,15 @@ func (s *Server) Login() http.HandlerFunc {
 			return err
 		}
 
-		jwtToken, err := s.service.Authenticate(user)
+		accessToken, refreshToken, err := s.service.Authenticate(r.Context(), user, getIP(r))
 		if err != nil {
 			return err
 		}
 
-		tokenResponse := TokenResponse{Token: *jwtToken}
+		tokenResponse := TokenResponse{
+			AccessToken:  *accessToken,
+			RefreshToken: *refreshToken,
+		}
 		if err := handler.Encode[TokenResponse](tokenResponse, http.StatusOK, w); err != nil {
 			return err
 		}
@@ -107,8 +113,8 @@ func (s *Server) Login() http.HandlerFunc {
 }
 
 type RegisterResponse struct {
-	User  *models.User `json:"user"`
-	Token *string      `json:"token"`
+	User  *models.User   `json:"user"`
+	Token *TokenResponse `json:"tokens"`
 }
 
 func (s *Server) Register() http.HandlerFunc {
@@ -134,14 +140,17 @@ func (s *Server) Register() http.HandlerFunc {
 			}
 		}
 
-		jwtToken, err := s.service.Authenticate(user)
+		accessToken, refreshToken, err := s.service.Authenticate(r.Context(), user, getIP(r))
 		if err != nil {
 			return err
 		}
 
 		registerResponse := RegisterResponse{
-			User:  user,
-			Token: jwtToken,
+			User: user,
+			Token: &TokenResponse{
+				AccessToken:  *accessToken,
+				RefreshToken: *refreshToken,
+			},
 		}
 		if err := handler.Encode[RegisterResponse](registerResponse, http.StatusOK, w); err != nil {
 			return err
@@ -338,4 +347,20 @@ func (s *Server) DeleteUser() http.HandlerFunc {
 		w.WriteHeader(http.StatusNoContent)
 		return nil
 	})
+}
+
+func getIP(r *http.Request) string {
+	ip := r.Header.Get("X-Forwarded-For")
+	if ip != "" {
+		parts := strings.Split(ip, ",")
+		if len(parts) > 0 {
+			return parts[0]
+		}
+	}
+
+	ip, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return ip
 }
