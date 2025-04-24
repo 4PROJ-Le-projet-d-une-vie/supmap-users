@@ -112,7 +112,7 @@ func (s *Server) Login() http.HandlerFunc {
 	})
 }
 
-type RegisterResponse struct {
+type UserWithTokenResponse struct {
 	User  *models.User   `json:"user"`
 	Token *TokenResponse `json:"tokens"`
 }
@@ -145,14 +145,14 @@ func (s *Server) Register() http.HandlerFunc {
 			return err
 		}
 
-		registerResponse := RegisterResponse{
+		userWithTokenResponse := UserWithTokenResponse{
 			User: user,
 			Token: &TokenResponse{
 				AccessToken:  *accessToken,
 				RefreshToken: *refreshToken,
 			},
 		}
-		if err := handler.Encode[RegisterResponse](registerResponse, http.StatusOK, w); err != nil {
+		if err := handler.Encode[UserWithTokenResponse](userWithTokenResponse, http.StatusOK, w); err != nil {
 			return err
 		}
 
@@ -222,7 +222,19 @@ func (s *Server) PatchMe() http.HandlerFunc {
 			return err
 		}
 
-		if err := handler.Encode[models.User](*user, http.StatusOK, w); err != nil {
+		accessToken, refreshToken, err := s.service.Authenticate(r.Context(), user, getIP(r))
+		if err != nil {
+			return err
+		}
+
+		userWithTokenResponse := UserWithTokenResponse{
+			User: user,
+			Token: &TokenResponse{
+				AccessToken:  *accessToken,
+				RefreshToken: *refreshToken,
+			},
+		}
+		if err := handler.Encode[UserWithTokenResponse](userWithTokenResponse, http.StatusOK, w); err != nil {
 			return err
 		}
 
