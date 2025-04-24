@@ -122,7 +122,7 @@ func (s *Server) Register() http.HandlerFunc {
 			return err
 		}
 
-		user, err := s.service.RegisterUser(r.Context(), body)
+		user, err := s.service.CreateUser(r.Context(), body)
 		if err != nil {
 			if authError := decodeAuthError(err); authError != nil {
 				authErrResponse := AuthErrorResponse{Error: authError.Message}
@@ -154,25 +154,28 @@ func (s *Server) Register() http.HandlerFunc {
 
 func (s *Server) CreateUser() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
-		body, err := handler.Decode[validations.CreateUserValidator](r)
-
-		toInsertUser := &models.User{
-			Email:        body.Email,
-			Handle:       "@" + body.Handle,
-			HashPassword: &body.Password,
-			RoleID:       1,
-		}
-
-		if err := s.users.Insert(toInsertUser, r.Context()); err != nil {
-			return err
-		}
-
-		insertedUser, err := s.users.FindByID(r.Context(), toInsertUser.ID)
+		body, err := handler.Decode[validations.AdminCreateUserValidator](r)
 		if err != nil {
+			if validationErrors := decodeValidationError(err); validationErrors != nil {
+				return buildValidationErrors(w, validationErrors)
+			}
 			return err
 		}
 
-		if err := handler.Encode[models.User](*insertedUser, http.StatusOK, w); err != nil {
+		user, err := s.service.CreateUserForAdmin(r.Context(), body)
+		if err != nil {
+			if authError := decodeAuthError(err); authError != nil {
+				authErrResponse := AuthErrorResponse{Error: authError.Message}
+				if err := handler.Encode(authErrResponse, authError.Code, w); err != nil {
+					return err
+				}
+				return nil
+			} else {
+				return err
+			}
+		}
+
+		if err := handler.Encode[models.User](*user, http.StatusOK, w); err != nil {
 			return err
 		}
 

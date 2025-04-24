@@ -27,6 +27,19 @@ func (u CreateUserValidator) Validate() error {
 	return nil
 }
 
+type AdminCreateUserValidator struct {
+	CreateUserValidator
+	Role string `json:"role" validate:"required,oneof=ROLE_USER ROLE_ADMIN"`
+}
+
+func (u AdminCreateUserValidator) Validate() error {
+	validate := validator.New()
+	if err := validate.Struct(u); err != nil {
+		return err
+	}
+	return nil
+}
+
 type UpdateUserValidator struct {
 	Email    *string `json:"email" validate:"omitempty,email"`
 	Handle   *string `json:"handle" validate:"omitempty,min=3,startsnotwith=@"`

@@ -57,24 +57,67 @@ func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, erro
 	return user, nil
 }
 
-func (s *Service) RegisterUser(ctx context.Context, body validations.CreateUserValidator) (*models.User, error) {
+type PartialUser struct {
+	Email    string
+	Handle   string
+	Password string
+	RoleID   int64
+}
 
-	hashed, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, err
-	}
-	hashStr := string(hashed)
+func (s *Service) CreateUser(ctx context.Context, body validations.CreateUserValidator) (*models.User, error) {
 
 	role, err := s.roles.FindUserRole(ctx)
 	if err != nil {
 		return nil, err
 	}
 
+	toInsertUser := &PartialUser{
+		Email:    body.Email,
+		Handle:   "@" + body.Handle,
+		Password: body.Password,
+		RoleID:   role.ID,
+	}
+
+	user, err := s.doCreateUser(ctx, toInsertUser)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+func (s *Service) CreateUserForAdmin(ctx context.Context, body validations.AdminCreateUserValidator) (*models.User, error) {
+	role, err := s.roles.FindRole(ctx, body.Role)
+	if err != nil {
+		return nil, err
+	}
+
+	toInsertUser := &PartialUser{
+		Email:    body.Email,
+		Handle:   "@" + body.Handle,
+		Password: body.Password,
+		RoleID:   role.ID,
+	}
+
+	user, err := s.doCreateUser(ctx, toInsertUser)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+func (s *Service) doCreateUser(ctx context.Context, partialUser *PartialUser) (*models.User, error) {
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(partialUser.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+	hashStr := string(hashed)
+
 	toInsertUser := &models.User{
-		Email:        body.Email,
-		Handle:       "@" + body.Handle,
+		Email:        partialUser.Email,
+		Handle:       "@" + partialUser.Handle,
 		HashPassword: &hashStr,
-		RoleID:       role.ID,
+		RoleID:       partialUser.RoleID,
 	}
 
 	// Email check
