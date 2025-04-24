@@ -14,6 +14,7 @@ type AuthError struct {
 	Error string `json:"error"`
 }
 
+var sessionExpired = &AuthError{Error: "session is expired"}
 var invalidToken = &AuthError{Error: "invalid token"}
 var invalidUser = &AuthError{Error: "invalid user"}
 
@@ -40,6 +41,15 @@ func (s *Server) AuthMiddleware() func(http.Handler) http.Handler {
 			user, err := s.service.GetUserByID(r.Context(), *userID)
 			if err != nil {
 				if err := handler.Encode(invalidUser, http.StatusUnauthorized, w); err != nil {
+					s.log.Error("Error while try to retrieve user", err)
+					w.WriteHeader(http.StatusInternalServerError)
+				}
+				return
+			}
+
+			isAuthenticate := s.service.IsAuthenticated(r.Context(), user)
+			if !isAuthenticate {
+				if err := handler.Encode(sessionExpired, http.StatusUnauthorized, w); err != nil {
 					s.log.Error("Error while try to retrieve user", err)
 					w.WriteHeader(http.StatusInternalServerError)
 				}

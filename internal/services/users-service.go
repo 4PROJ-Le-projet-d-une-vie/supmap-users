@@ -408,3 +408,20 @@ func (s *Service) hashPassword(password string) (*string, error) {
 	hashStr := string(hashed)
 	return &hashStr, nil
 }
+
+func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool {
+	token, err := s.tokens.Get(ctx, user)
+	if err != nil {
+		return false
+	}
+
+	if token == nil {
+		return false
+	}
+
+	if token.ExpiresAt.Before(time.Now()) {
+		return false
+	}
+
+	return true
+}

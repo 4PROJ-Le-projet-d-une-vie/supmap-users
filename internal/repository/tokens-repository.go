@@ -29,3 +29,18 @@ func (t *Tokens) Delete(ctx context.Context, user *models.User) error {
 
 	return err
 }
+
+func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error) {
+	var token models.Token
+	err := t.bun.NewSelect().
+		Model(&token).
+		Where("user_id = ?", user.ID).
+		Limit(1).
+		Scan(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &token, nil
+}
