@@ -280,6 +280,14 @@ func decodeUpdateError(err error) *services.UpdateError {
 	return nil
 }
 
+func decodeDeleteError(err error) *services.DeleteError {
+	var de *services.DeleteError
+	if errors.As(err, &de) {
+		return de
+	}
+	return nil
+}
+
 func buildValidationErrors(w http.ResponseWriter, errors validator.ValidationErrors) error {
 	errs := make(map[string]string)
 
@@ -294,6 +302,10 @@ func buildValidationErrors(w http.ResponseWriter, errors validator.ValidationErr
 	}
 
 	return nil // Finally return nil to fully controls HTTP error
+}
+
+type DeleteErrorResponse struct {
+	Error string `json:"error"`
 }
 
 func (s *Server) DeleteUser() http.HandlerFunc {
@@ -317,7 +329,17 @@ func (s *Server) DeleteUser() http.HandlerFunc {
 			return nil
 		}
 
-		if err := s.users.Delete(r.Context(), id); err != nil {
+		if err := s.service.DeleteUser(r.Context(), id); err != nil {
+			if deleteErr := decodeDeleteError(err); deleteErr != nil {
+				w.WriteHeader(http.StatusNotFound)
+
+				deleteErrResponse := DeleteErrorResponse{Error: deleteErr.Error()}
+				if err := handler.Encode[DeleteErrorResponse](deleteErrResponse, http.StatusInternalServerError, w); err != nil {
+
+				}
+
+				return nil
+			}
 			return err
 		}
 

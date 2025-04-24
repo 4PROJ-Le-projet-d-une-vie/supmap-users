@@ -4,7 +4,6 @@ import (
 	"log/slog"
 	"net/http"
 	"supmap-users/internal/config"
-	"supmap-users/internal/repository"
 	"supmap-users/internal/services"
 )
 
@@ -12,15 +11,13 @@ type Server struct {
 	Config  *config.Config
 	log     *slog.Logger
 	service *services.Service
-	users   *repository.Users
 }
 
-func NewServer(config *config.Config, log *slog.Logger, service *services.Service, users *repository.Users) *Server {
+func NewServer(config *config.Config, log *slog.Logger, service *services.Service) *Server {
 	return &Server{
 		Config:  config,
 		log:     log,
 		service: service,
-		users:   users,
 	}
 }
 

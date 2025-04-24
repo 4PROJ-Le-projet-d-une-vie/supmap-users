@@ -47,6 +47,14 @@ func (e UpdateError) Error() string {
 	return e.Message
 }
 
+type DeleteError struct {
+	Message string
+}
+
+func (e DeleteError) Error() string {
+	return e.Message
+}
+
 func (s *Service) GetAllUsers(ctx context.Context) ([]models.User, error) {
 	users, err := s.users.FindAll(ctx)
 	if err != nil {
@@ -310,6 +318,26 @@ func (s *Service) Login(ctx context.Context, email, handle *string, password str
 	}
 
 	return user, nil
+}
+
+type DeleteUser struct {
+}
+
+func (s *Service) DeleteUser(ctx context.Context, id int64) error {
+	user, err := s.users.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if user == nil {
+		return &DeleteError{Message: "User not found"}
+	}
+
+	err = s.users.Delete(ctx, id)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *Service) Authenticate(user *models.User) (*string, error) {

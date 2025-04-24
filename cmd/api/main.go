@@ -60,7 +60,7 @@ func main() {
 	service := services.NewService(logger, conf, users, roles)
 
 	// Create the HTTP server
-	server := api.NewServer(conf, logger, service, users)
+	server := api.NewServer(conf, logger, service)
 	if err := server.Start(); err != nil {
 		log.Fatal(err)
 	}
