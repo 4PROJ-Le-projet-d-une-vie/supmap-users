@@ -39,6 +39,14 @@ func (e AuthError) Error() string {
 	return e.Message
 }
 
+type UpdateError struct {
+	Message string
+}
+
+func (e UpdateError) Error() string {
+	return e.Message
+}
+
 func (s *Service) GetAllUsers(ctx context.Context) ([]models.User, error) {
 	users, err := s.users.FindAll(ctx)
 	if err != nil {
@@ -57,7 +65,7 @@ func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, erro
 	return user, nil
 }
 
-type PartialUser struct {
+type PartialCreateUser struct {
 	Email    string
 	Handle   string
 	Password string
@@ -71,7 +79,7 @@ func (s *Service) CreateUser(ctx context.Context, body validations.CreateUserVal
 		return nil, err
 	}
 
-	toInsertUser := &PartialUser{
+	toInsertUser := &PartialCreateUser{
 		Email:    body.Email,
 		Handle:   "@" + body.Handle,
 		Password: body.Password,
@@ -91,7 +99,7 @@ func (s *Service) CreateUserForAdmin(ctx context.Context, body validations.Admin
 		return nil, err
 	}
 
-	toInsertUser := &PartialUser{
+	toInsertUser := &PartialCreateUser{
 		Email:    body.Email,
 		Handle:   "@" + body.Handle,
 		Password: body.Password,
@@ -105,7 +113,7 @@ func (s *Service) CreateUserForAdmin(ctx context.Context, body validations.Admin
 	return user, nil
 }
 
-func (s *Service) doCreateUser(ctx context.Context, partialUser *PartialUser) (*models.User, error) {
+func (s *Service) doCreateUser(ctx context.Context, partialUser *PartialCreateUser) (*models.User, error) {
 
 	hashed, err := bcrypt.GenerateFromPassword([]byte(partialUser.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -167,6 +175,104 @@ func (s *Service) doCreateUser(ctx context.Context, partialUser *PartialUser) (*
 	return user, nil
 }
 
+type PartialPatchUser struct {
+	Email    *string
+	Handle   *string
+	Password *string
+	RoleID   *int64
+}
+
+func (s *Service) PatchUser(ctx context.Context, id int64, body validations.UpdateUserValidator) (*models.User, error) {
+	var handle *string
+	if body.Handle != nil {
+		h := "@" + *body.Handle
+		handle = &h
+	}
+
+	partialUser := &PartialPatchUser{
+		Email:    body.Email,
+		Handle:   handle,
+		Password: body.Password,
+	}
+
+	user, err := s.doPatchUser(ctx, id, partialUser)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+func (s *Service) PatchUserForAdmin(ctx context.Context, id int64, body validations.AdminUpdateUserValidator) (*models.User, error) {
+
+	var handle *string
+	if body.Handle != nil {
+		h := "@" + *body.Handle
+		handle = &h
+	}
+
+	var roleId *int64
+	if body.Role != nil {
+		role, err := s.roles.FindRole(ctx, *body.Role)
+		if err != nil {
+			return nil, err
+		}
+		roleId = &role.ID
+	}
+
+	partialUser := &PartialPatchUser{
+		Email:    body.Email,
+		Handle:   handle,
+		Password: body.Password,
+		RoleID:   roleId,
+	}
+
+	user, err := s.doPatchUser(ctx, id, partialUser)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+func (s *Service) doPatchUser(ctx context.Context, id int64, partialUser *PartialPatchUser) (*models.User, error) {
+
+	userToPatch := &models.User{
+		ID:        id,
+		UpdatedAt: time.Now(),
+	}
+
+	if partialUser.Email != nil {
+		userToPatch.Email = *partialUser.Email
+	}
+
+	if partialUser.Handle != nil {
+		userToPatch.Handle = *partialUser.Handle
+	}
+
+	if partialUser.Password != nil {
+		hashed, err := s.hashPassword(*partialUser.Password)
+		if err != nil {
+			return nil, err
+		}
+		userToPatch.HashPassword = hashed
+	}
+
+	if partialUser.RoleID != nil {
+		userToPatch.RoleID = *partialUser.RoleID
+	}
+
+	err := s.users.Update(userToPatch, ctx)
+	if err != nil {
+		s.log.Error("Error occurred while updating user", "details", err)
+		return nil, &UpdateError{Message: "Error occurred while updating user"}
+	}
+
+	user, err := s.users.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return user, err
+}
+
 var wrongCredentialsError = &AuthError{
 	Message: "Wrong credentials",
 	Code:    http.StatusUnauthorized,
@@ -220,4 +326,13 @@ func (s *Service) Authenticate(user *models.User) (*string, error) {
 	}
 
 	return &token, nil
+}
+
+func (s *Service) hashPassword(password string) (*string, error) {
+	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+	hashStr := string(hashed)
+	return &hashStr, nil
 }

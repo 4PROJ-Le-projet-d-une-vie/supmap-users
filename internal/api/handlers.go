@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/go-playground/validator/v10"
 	"github.com/matheodrd/httphelper/handler"
-	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"strconv"
 	"supmap-users/internal/api/validations"
@@ -183,11 +182,14 @@ func (s *Server) CreateUser() http.HandlerFunc {
 	})
 }
 
+type UpdateErrorResponse struct {
+	Error string `json:"error"`
+}
+
 func (s *Server) PatchMe() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		authUser, ok := r.Context().Value("user").(*models.User)
 		if !ok {
-			s.log.Warn("Unauthenticated request to PATCH /user/me")
 			w.WriteHeader(http.StatusUnauthorized)
 			return nil
 		}
@@ -200,34 +202,22 @@ func (s *Server) PatchMe() http.HandlerFunc {
 			return err
 		}
 
-		toUpdateUser := &models.User{ID: authUser.ID}
-		if body.Email != nil {
-			toUpdateUser.Email = *body.Email
-		}
-
-		if body.Handle != nil {
-			toUpdateUser.Handle = *body.Handle
-		}
-
-		if body.Password != nil {
-			hashed, err := bcrypt.GenerateFromPassword([]byte(*body.Password), bcrypt.DefaultCost)
-			if err != nil {
-				return err
-			}
-			hashStr := string(hashed)
-			toUpdateUser.HashPassword = &hashStr
-		}
-
-		if err := s.users.Update(toUpdateUser, r.Context()); err != nil {
-			return err
-		}
-
-		updatedUser, err := s.users.FindByID(r.Context(), toUpdateUser.ID)
+		user, err := s.service.PatchUser(r.Context(), authUser.ID, body)
 		if err != nil {
+			if updateErr := decodeUpdateError(err); updateErr != nil {
+
+				updateErrResponse := UpdateErrorResponse{
+					Error: updateErr.Message,
+				}
+				if err := handler.Encode(updateErrResponse, http.StatusConflict, w); err != nil {
+					return err
+				}
+				return nil
+			}
 			return err
 		}
 
-		if err := handler.Encode[models.User](*updatedUser, http.StatusOK, w); err != nil {
+		if err := handler.Encode[models.User](*user, http.StatusOK, w); err != nil {
 			return err
 		}
 
@@ -244,16 +234,6 @@ func (s *Server) PatchUser() http.HandlerFunc {
 			return err
 		}
 
-		existingUser, err := s.users.FindByID(r.Context(), id)
-		if err != nil {
-			http.Error(w, "failed to retrieve user", http.StatusInternalServerError)
-			return nil
-		}
-		if existingUser == nil {
-			http.Error(w, "user not found", http.StatusNotFound)
-			return nil
-		}
-
 		body, err := handler.Decode[validations.UpdateUserValidator](r)
 		if err != nil {
 			if validationErrors := decodeValidationError(err); validationErrors != nil {
@@ -262,36 +242,12 @@ func (s *Server) PatchUser() http.HandlerFunc {
 			return err
 		}
 
-		userToUpdate := &models.User{ID: id}
-		if body.Email != nil {
-			userToUpdate.Email = *body.Email
-		}
-
-		if body.Handle != nil {
-			userToUpdate.Handle = *body.Handle
-		}
-
-		if body.Password != nil {
-			hashed, err := bcrypt.GenerateFromPassword([]byte(*body.Password), bcrypt.DefaultCost)
-			if err != nil {
-				return err
-			}
-			hashStr := string(hashed)
-			userToUpdate.HashPassword = &hashStr
-		}
-
-		if err := s.users.Update(userToUpdate, r.Context()); err != nil {
-			http.Error(w, "failed to update user", http.StatusInternalServerError)
-			return nil
-		}
-
-		updatedUser, err := s.users.FindByID(r.Context(), id)
+		user, err := s.service.PatchUser(r.Context(), id, body)
 		if err != nil {
-			http.Error(w, "failed to fetch updated user", http.StatusInternalServerError)
-			return nil
+			return err
 		}
 
-		if err := handler.Encode[models.User](*updatedUser, http.StatusOK, w); err != nil {
+		if err := handler.Encode[models.User](*user, http.StatusOK, w); err != nil {
 			return err
 		}
 
@@ -313,6 +269,14 @@ func decodeAuthError(err error) *services.AuthError {
 		return ae
 	}
 
+	return nil
+}
+
+func decodeUpdateError(err error) *services.UpdateError {
+	var ue *services.UpdateError
+	if errors.As(err, &ue) {
+		return ue
+	}
 	return nil
 }
 

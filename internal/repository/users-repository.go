@@ -96,9 +96,15 @@ func (u *Users) Insert(user *models.User, ctx context.Context) error {
 }
 
 func (u *Users) Update(user *models.User, ctx context.Context) error {
-	if _, err := u.bun.NewUpdate().Model(user).Exec(ctx); err != nil {
+	_, err := u.bun.NewUpdate().
+		Model(user).
+		Where("id = ?", user.ID).
+		OmitZero().
+		Exec(ctx)
+	if err != nil {
 		return err
 	}
+
 	return nil
 }
 

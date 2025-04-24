@@ -54,6 +54,11 @@ func (u UpdateUserValidator) Validate() error {
 	return nil
 }
 
+type AdminUpdateUserValidator struct {
+	UpdateUserValidator
+	Role *string `json:"role" validate:"required,oneof=ROLE_USER ROLE_ADMIN"`
+}
+
 type LoginValidator struct {
 	Email    *string `json:"email" validate:"omitempty,email"`
 	Handle   *string `json:"handle" validate:"omitempty,min=3,startsnotwith=@"`
