@@ -54,9 +54,10 @@ func main() {
 
 	// Create users repository
 	users := repository.NewUsers(bunDB, logger)
+	roles := repository.NewRoles(bunDB)
 
 	// Create users service
-	service := services.NewService(logger, conf, users)
+	service := services.NewService(logger, conf, users, roles)
 
 	// Create the HTTP server
 	server := api.NewServer(conf, logger, service, users)

@@ -18,13 +18,15 @@ type Service struct {
 	log    *slog.Logger
 	config *config.Config
 	users  *repository.Users
+	roles  *repository.Roles
 }
 
-func NewService(log *slog.Logger, config *config.Config, users *repository.Users) *Service {
+func NewService(log *slog.Logger, config *config.Config, users *repository.Users, roles *repository.Roles) *Service {
 	return &Service{
 		log:    log,
 		config: config,
 		users:  users,
+		roles:  roles,
 	}
 }
 
@@ -63,11 +65,16 @@ func (s *Service) RegisterUser(ctx context.Context, body validations.CreateUserV
 	}
 	hashStr := string(hashed)
 
+	role, err := s.roles.FindUserRole(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	toInsertUser := &models.User{
 		Email:        body.Email,
 		Handle:       "@" + body.Handle,
 		HashPassword: &hashStr,
-		RoleID:       1,
+		RoleID:       role.ID,
 	}
 
 	// Email check
