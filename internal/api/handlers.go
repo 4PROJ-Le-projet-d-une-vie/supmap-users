@@ -259,6 +259,7 @@ func (s *Server) Logout() http.HandlerFunc {
 			}
 		}
 
+		w.WriteHeader(http.StatusNoContent)
 		return nil
 	})
 }
