@@ -36,6 +36,9 @@ import (
 // @name Authorization
 func main() {
 	conf, err := config.New()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Configure logger
 	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -44,12 +47,12 @@ func main() {
 	logger := slog.New(handler)
 
 	// Run database migrations
-	if err := migrations.Migrate("pgx", "postgres://root:root@localhost:5432/public", logger); err != nil {
+	if err := migrations.Migrate("pgx", conf.DbUrl, logger); err != nil {
 		logger.Error("migration failed", "err", err)
 	}
 
 	// Open SQL connection
-	conn, err := sql.Open("pgx", "postgres://root:root@localhost:5432/public")
+	conn, err := sql.Open("pgx", conf.DbUrl)
 	if err != nil {
 		log.Fatal(err)
 	}
