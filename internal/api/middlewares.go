@@ -64,8 +64,6 @@ func (s *Server) AuthMiddleware() func(http.Handler) http.Handler {
 				return
 			}
 
-			s.log.Info("User authenticated", "userID", user.ID)
-
 			ctx := context.WithValue(r.Context(), "user", user)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
