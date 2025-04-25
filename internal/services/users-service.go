@@ -409,6 +409,33 @@ func (s *Service) hashPassword(password string) (*string, error) {
 	return &hashStr, nil
 }
 
+var invalidRefreshTokenError = &AuthError{
+	Message: "Invalid token",
+	Code:    403,
+}
+
+func (s *Service) RefreshToken(ctx context.Context, user *models.User, refreshToken string) (*string, error) {
+	token, err := s.tokens.Get(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+
+	if token == nil {
+		return nil, invalidRefreshTokenError
+	}
+
+	if token.Token != refreshToken {
+		return nil, invalidRefreshTokenError
+	}
+
+	accessToken, err := s.generateAccessToken(user)
+	if err != nil {
+		return nil, err
+	}
+
+	return accessToken, nil
+}
+
 func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool {
 	token, err := s.tokens.Get(ctx, user)
 	if err != nil {

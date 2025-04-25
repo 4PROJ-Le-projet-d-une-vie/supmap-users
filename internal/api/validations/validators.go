@@ -82,3 +82,15 @@ func LoginStructValidation(s validator.StructLevel) {
 		s.ReportError(login.Email, "Email/Handle", "", "EmailOrHandleExclusive", "")
 	}
 }
+
+type RefreshValidator struct {
+	Token string `json:"token" validate:"required,len=64"`
+}
+
+func (r RefreshValidator) Validate() error {
+	validate := validator.New()
+	if err := validate.Struct(r); err != nil {
+		return err
+	}
+	return nil
+}

@@ -16,7 +16,7 @@ import (
 
 type TokenResponse struct {
 	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	RefreshToken string `json:"refresh_token,omitempty"`
 }
 
 type ErrorResponse struct {
@@ -187,6 +187,45 @@ func (s *Server) CreateUser() http.HandlerFunc {
 			return err
 		}
 
+		return nil
+	})
+}
+
+func (s *Server) Refresh() http.HandlerFunc {
+	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
+		authUser, ok := r.Context().Value("user").(*models.User)
+		if !ok {
+			w.WriteHeader(http.StatusUnauthorized)
+			return nil
+		}
+
+		body, err := handler.Decode[validations.RefreshValidator](r)
+		if err != nil {
+			if validationErrors := decodeValidationError(err); validationErrors != nil {
+				return buildValidationErrors(w, validationErrors)
+			}
+			return err
+		}
+
+		accessToken, err := s.service.RefreshToken(r.Context(), authUser, body.Token)
+		if err != nil {
+			if authError := decodeAuthError(err); authError != nil {
+				authErrResponse := ErrorResponse{Error: authError.Message}
+				if err := handler.Encode(authErrResponse, authError.Code, w); err != nil {
+					return err
+				}
+				return nil
+			} else {
+				return err
+			}
+		}
+
+		tokenResponse := TokenResponse{
+			AccessToken: *accessToken,
+		}
+		if err := handler.Encode[TokenResponse](tokenResponse, http.StatusOK, w); err != nil {
+			return err
+		}
 		return nil
 	})
 }
