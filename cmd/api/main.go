@@ -17,6 +17,23 @@ import (
 	"supmap-users/migrations"
 )
 
+// @title SupMap Users API
+// @version 1.0
+// @description Cette API permet de gérer les utilisateurs de SupMap.
+// @termsOfService http://example.com/terms/
+
+// @contact.name Ewen
+// @contact.email ewen@example.com
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host localhost:8080
+// @BasePath /
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 func main() {
 	conf, err := config.New()
 

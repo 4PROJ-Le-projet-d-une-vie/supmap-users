@@ -1,8 +1,10 @@
 package api
 
 import (
+	httpSwagger "github.com/swaggo/http-swagger"
 	"log/slog"
 	"net/http"
+	_ "supmap-users/docs"
 	"supmap-users/internal/config"
 	"supmap-users/internal/services"
 )
@@ -24,6 +26,8 @@ func NewServer(config *config.Config, log *slog.Logger, service *services.Servic
 func (s *Server) Start() error {
 	mux := http.NewServeMux()
 
+	mux.Handle("/swagger/", httpSwagger.WrapHandler)
+
 	mux.Handle("GET /user/all", s.AuthMiddleware()(s.AdminMiddleware()(s.GetUsers())))
 	mux.Handle("GET /user/{id}", s.AuthMiddleware()(s.AdminMiddleware()(s.GetUserById())))
 	mux.Handle("GET /user/me", s.AuthMiddleware()(s.GetMe()))
@@ -31,12 +35,11 @@ func (s *Server) Start() error {
 	mux.Handle("POST /login", s.Login())
 	mux.Handle("POST /register", s.Register())
 	mux.Handle("POST /refresh", s.AuthMiddleware()(s.Refresh()))
-	mux.Handle("POST /user", s.AuthMiddleware()(s.AdminMiddleware()(s.CreateUser())))
 	mux.Handle("POST /logout", s.AuthMiddleware()(s.Logout()))
 
+	mux.Handle("POST /user", s.AuthMiddleware()(s.AdminMiddleware()(s.CreateUser())))
 	mux.Handle("PATCH /user/me", s.AuthMiddleware()(s.PatchMe()))
 	mux.Handle("PATCH /user/{id}", s.AuthMiddleware()(s.AdminMiddleware()(s.PatchUser())))
-
 	mux.Handle("DELETE /user/{id}", s.AuthMiddleware()(s.DeleteUser()))
 
 	server := &http.Server{

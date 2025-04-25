@@ -11,8 +11,13 @@ import (
 	"strings"
 	"supmap-users/internal/api/validations"
 	"supmap-users/internal/models"
+	"supmap-users/internal/models/dto"
 	"supmap-users/internal/services"
 )
+
+type InternalErrorResponse struct {
+	Message string `json:"message"`
+}
 
 type TokenResponse struct {
 	AccessToken  string `json:"access_token"`
@@ -23,6 +28,16 @@ type ErrorResponse struct {
 	Error string `json:"error"`
 }
 
+// GetUsers godoc
+// @Summary Récupère tous les utilisateurs
+// @Description Retourne une liste complète de tous les utilisateurs enregistrés. Nécessite une authentification.
+// @Tags Utilisateurs
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {array} dto.UserDTO
+// @Failure 401 {object} api.ErrorResponse "Non authentifié"
+// @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
+// @Router /user/all [get]
 func (s *Server) GetUsers() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		users, err := s.service.GetAllUsers(r.Context())
@@ -30,7 +45,12 @@ func (s *Server) GetUsers() http.HandlerFunc {
 			return err
 		}
 
-		if err := handler.Encode[[]models.User](users, http.StatusOK, w); err != nil {
+		var usersDTO = make([]dto.UserDTO, len(users))
+		for i, user := range users {
+			usersDTO[i] = *dto.UserToDTO(&user)
+		}
+
+		if err := handler.Encode[[]dto.UserDTO](usersDTO, http.StatusOK, w); err != nil {
 			return err
 		}
 
@@ -38,6 +58,18 @@ func (s *Server) GetUsers() http.HandlerFunc {
 	})
 }
 
+// GetUserById godoc
+// @Summary Récupère un utilisateur par son ID
+// @Description Retourne un utilisateur correspondant à l'ID donné. Nécessite une authentification.
+// @Tags Utilisateurs
+// @Security BearerAuth
+// @Produce json
+// @Param id path int true "ID de l'utilisateur"
+// @Success 200 {object} dto.UserDTO
+// @Failure 401 {object} api.ErrorResponse "Non authentifié"
+// @Failure 404 {object} api.ErrorResponse "Utilisateur non trouvé"
+// @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
+// @Router /user/{id} [get]
 func (s *Server) GetUserById() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		param := r.PathValue("id")
@@ -57,7 +89,7 @@ func (s *Server) GetUserById() http.HandlerFunc {
 			return nil
 		}
 
-		if err := handler.Encode[models.User](*user, http.StatusOK, w); err != nil {
+		if err := handler.Encode[dto.UserDTO](*dto.UserToDTO(user), http.StatusOK, w); err != nil {
 			return err
 		}
 
@@ -65,6 +97,16 @@ func (s *Server) GetUserById() http.HandlerFunc {
 	})
 }
 
+// GetMe godoc
+// @Summary Récupère les informations de l'utilisateur connecté
+// @Description Retourne les informations de l'utilisateur actuellement authentifié.
+// @Tags Utilisateurs
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {object} dto.UserDTO
+// @Failure 401 {object} api.ErrorResponse "Non authentifié"
+// @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
+// @Router /user/me [get]
 func (s *Server) GetMe() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		user, ok := r.Context().Value("user").(*models.User)
@@ -73,13 +115,25 @@ func (s *Server) GetMe() http.HandlerFunc {
 			return nil
 		}
 
-		if err := handler.Encode[models.User](*user, http.StatusOK, w); err != nil {
+		if err := handler.Encode[dto.UserDTO](*dto.UserToDTO(user), http.StatusOK, w); err != nil {
 			return err
 		}
 		return nil
 	})
 }
 
+// Login godoc
+// @Summary Authentification d'un utilisateur
+// @Description Authentifie un utilisateur via son email ou handle et son mot de passe, et retourne un access token ainsi qu’un refresh token.
+// @Tags Authentification
+// @Accept json
+// @Produce json
+// @Param data body validations.LoginValidator true "Données de connexion"
+// @Success 200 {object} api.TokenResponse
+// @Failure 400 {object} api.ErrorResponse
+// @Failure 401 {object} api.ErrorResponse
+// @Failure 500 {object} api.InternalErrorResponse
+// @Router /login [post]
 func (s *Server) Login() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		body, err := handler.Decode[validations.LoginValidator](r)
@@ -113,10 +167,22 @@ func (s *Server) Login() http.HandlerFunc {
 }
 
 type UserWithTokenResponse struct {
-	User  *models.User   `json:"user"`
+	User  *dto.UserDTO   `json:"user"`
 	Token *TokenResponse `json:"tokens"`
 }
 
+// Register godoc
+// @Summary Register a new user
+// @Description Register a new user with email, handle, and password. Returns the created user and JWT tokens.
+// @Tags Authentification
+// @Accept json
+// @Produce json
+// @Param request body validations.CreateUserValidator true "User registration payload"
+// @Success 200 {object} UserWithTokenResponse
+// @Failure 400 {object} ErrorResponse "Validation error or malformed request"
+// @Failure 409 {object} ErrorResponse "User already exists or conflict"
+// @Failure 500 {object} api.InternalErrorResponse "Internal server error"
+// @Router /register [post]
 func (s *Server) Register() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		body, err := handler.Decode[validations.CreateUserValidator](r)
@@ -146,7 +212,7 @@ func (s *Server) Register() http.HandlerFunc {
 		}
 
 		userWithTokenResponse := UserWithTokenResponse{
-			User: user,
+			User: dto.UserToDTO(user),
 			Token: &TokenResponse{
 				AccessToken:  *accessToken,
 				RefreshToken: *refreshToken,
@@ -160,6 +226,20 @@ func (s *Server) Register() http.HandlerFunc {
 	})
 }
 
+// CreateUser godoc
+// @Summary Crée un nouvel utilisateur (admin uniquement)
+// @Description Permet à un administrateur de créer un utilisateur avec un rôle personnalisé.
+// @Tags Utilisateurs
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param payload body validations.AdminCreateUserValidator true "Données du nouvel utilisateur"
+// @Success 200 {object} dto.UserDTO
+// @Failure 400 {object} validations.ValidationError "Erreur de validation"
+// @Failure 401 {object} api.ErrorResponse "Non authentifié"
+// @Failure 403 {object} api.ErrorResponse "Non autorisé (admin requis)"
+// @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
+// @Router /user [post]
 func (s *Server) CreateUser() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		body, err := handler.Decode[validations.AdminCreateUserValidator](r)
@@ -183,7 +263,7 @@ func (s *Server) CreateUser() http.HandlerFunc {
 			}
 		}
 
-		if err := handler.Encode[models.User](*user, http.StatusOK, w); err != nil {
+		if err := handler.Encode[dto.UserDTO](*dto.UserToDTO(user), http.StatusOK, w); err != nil {
 			return err
 		}
 
@@ -191,6 +271,18 @@ func (s *Server) CreateUser() http.HandlerFunc {
 	})
 }
 
+// Refresh godoc
+// @Summary Rafraîchit le token d'accès de l'utilisateur
+// @Description Permet d'obtenir un nouveau token d'accès à partir d'un refresh token valide.
+// @Tags Authentification
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param data body validations.RefreshValidator true "Refresh Token"
+// @Success 200 {object} api.TokenResponse
+// @Failure 400 {object} api.ErrorResponse "Erreur de validation ou refresh token invalide"
+// @Failure 401 {object} api.ErrorResponse "Non authentifié"
+// @Router /refresh [post]
 func (s *Server) Refresh() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		authUser, ok := r.Context().Value("user").(*models.User)
@@ -230,6 +322,18 @@ func (s *Server) Refresh() http.HandlerFunc {
 	})
 }
 
+// Logout godoc
+// @Summary Déconnecte l'utilisateur
+// @Description Invalide le refresh token de l'utilisateur, ce qui le déconnecte complètement.
+// @Tags Authentification
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param data body validations.RefreshValidator true "Refresh Token"
+// @Success 204 "Déconnexion réussie"
+// @Failure 400 {object} api.ErrorResponse "Erreur de validation ou refresh token invalide"
+// @Failure 401 {object} api.ErrorResponse "Non authentifié"
+// @Router /logout [post]
 func (s *Server) Logout() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		authUser, ok := r.Context().Value("user").(*models.User)
@@ -264,6 +368,20 @@ func (s *Server) Logout() http.HandlerFunc {
 	})
 }
 
+// PatchMe godoc
+// @Summary Met à jour les informations de l'utilisateur connecté
+// @Description Permet à l'utilisateur actuellement authentifié de mettre à jour ses informations personnelles.
+// @Tags Utilisateurs
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param payload body validations.UpdateUserValidator true "Données à mettre à jour"
+// @Success 200 {object} api.UserWithTokenResponse
+// @Failure 400 {object} validations.ValidationError "Erreur de validation"
+// @Failure 401 {object} api.ErrorResponse "Non authentifié"
+// @Failure 409 {object} api.ErrorResponse "Conflit (par ex. email ou handle déjà utilisé)"
+// @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
+// @Router /user/me [patch]
 func (s *Server) PatchMe() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		authUser, ok := r.Context().Value("user").(*models.User)
@@ -301,7 +419,7 @@ func (s *Server) PatchMe() http.HandlerFunc {
 		}
 
 		userWithTokenResponse := UserWithTokenResponse{
-			User: user,
+			User: dto.UserToDTO(user),
 			Token: &TokenResponse{
 				AccessToken:  *accessToken,
 				RefreshToken: *refreshToken,
@@ -315,6 +433,22 @@ func (s *Server) PatchMe() http.HandlerFunc {
 	})
 }
 
+// PatchUser godoc
+// @Summary Mise à jour d'un utilisateur par un administrateur
+// @Description Permet à un administrateur de mettre à jour les informations d'un utilisateur spécifié par ID.
+// @Tags Utilisateurs
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path int true "ID de l'utilisateur à mettre à jour"
+// @Param payload body validations.UpdateUserValidator true "Données à mettre à jour"
+// @Success 200 {object} dto.UserDTO
+// @Failure 400 {object} validations.ValidationError "Erreur de validation"
+// @Failure 401 {object} api.ErrorResponse "Non authentifié"
+// @Failure 403 {object} api.ErrorResponse "Accès interdit (l'utilisateur n'est pas administrateur)"
+// @Failure 404 {object} api.ErrorResponse "Utilisateur non trouvé"
+// @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
+// @Router /user/{id} [patch]
 func (s *Server) PatchUser() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		param := r.PathValue("id")
@@ -337,10 +471,64 @@ func (s *Server) PatchUser() http.HandlerFunc {
 			return err
 		}
 
-		if err := handler.Encode[models.User](*user, http.StatusOK, w); err != nil {
+		if err := handler.Encode[dto.UserDTO](*dto.UserToDTO(user), http.StatusOK, w); err != nil {
 			return err
 		}
 
+		return nil
+	})
+}
+
+// DeleteUser godoc
+// @Summary Suppression d'un utilisateur
+// @Description Permet de supprimer un utilisateur par son ID. L'utilisateur peut supprimer son propre compte ou un administrateur peut supprimer n'importe quel compte.
+// @Tags Utilisateurs
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path int true "ID de l'utilisateur à supprimer"
+// @Success 204 "Utilisateur supprimé avec succès"
+// @Failure 400 {object} api.InternalErrorResponse "Erreur interne du serveur"
+// @Failure 401 {object} api.ErrorResponse "Non authentifié ou non autorisé"
+// @Failure 404 {object} api.ErrorResponse "Utilisateur non trouvé"
+// @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
+// @Router /user/{id} [delete]
+func (s *Server) DeleteUser() http.HandlerFunc {
+	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
+		param := r.PathValue("id")
+
+		id, err := strconv.ParseInt(param, 10, 64)
+		if err != nil {
+			return err
+		}
+
+		authUser, ok := r.Context().Value("user").(*models.User)
+		if !ok {
+			s.log.Warn("Unauthenticated request to DELETE /user/" + param)
+			w.WriteHeader(http.StatusUnauthorized)
+			return nil
+		}
+
+		if authUser.Role.Name != "ROLE_ADMIN" && authUser.ID != id {
+			w.WriteHeader(http.StatusUnauthorized)
+			return nil
+		}
+
+		if err := s.service.DeleteUser(r.Context(), id); err != nil {
+			if deleteErr := decodeDeleteError(err); deleteErr != nil {
+				w.WriteHeader(http.StatusNotFound)
+
+				deleteErrResponse := ErrorResponse{Error: deleteErr.Error()}
+				if err := handler.Encode(deleteErrResponse, http.StatusInternalServerError, w); err != nil {
+
+				}
+
+				return nil
+			}
+			return err
+		}
+
+		w.WriteHeader(http.StatusNoContent)
 		return nil
 	})
 }
@@ -392,46 +580,6 @@ func buildValidationErrors(w http.ResponseWriter, errors validator.ValidationErr
 	}
 
 	return nil // Finally return nil to fully controls HTTP error
-}
-
-func (s *Server) DeleteUser() http.HandlerFunc {
-	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
-		param := r.PathValue("id")
-
-		id, err := strconv.ParseInt(param, 10, 64)
-		if err != nil {
-			return err
-		}
-
-		authUser, ok := r.Context().Value("user").(*models.User)
-		if !ok {
-			s.log.Warn("Unauthenticated request to DELETE /user/" + param)
-			w.WriteHeader(http.StatusUnauthorized)
-			return nil
-		}
-
-		if authUser.Role.Name != "ROLE_ADMIN" && authUser.ID != id {
-			w.WriteHeader(http.StatusUnauthorized)
-			return nil
-		}
-
-		if err := s.service.DeleteUser(r.Context(), id); err != nil {
-			if deleteErr := decodeDeleteError(err); deleteErr != nil {
-				w.WriteHeader(http.StatusNotFound)
-
-				deleteErrResponse := ErrorResponse{Error: deleteErr.Error()}
-				if err := handler.Encode(deleteErrResponse, http.StatusInternalServerError, w); err != nil {
-
-				}
-
-				return nil
-			}
-			return err
-		}
-
-		w.WriteHeader(http.StatusNoContent)
-		return nil
-	})
 }
 
 func getIP(r *http.Request) string {
