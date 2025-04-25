@@ -3,7 +3,9 @@ package services
 import (
 	"context"
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -348,6 +350,15 @@ func (s *Service) Authenticate(ctx context.Context, user *models.User, ip string
 	accessToken, err := s.generateAccessToken(user)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	token, err := s.tokens.Get(ctx, user)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, nil, err
+	}
+
+	if token != nil {
+		return accessToken, &token.Token, nil
 	}
 
 	refreshToken, err := s.generateRefreshToken(64)
