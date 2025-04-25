@@ -1,4 +1,16 @@
 services:
+  users-service:
+    build:
+      context: ./
+    container_name: "users-service"
+    ports:
+      - "8080:80"
+    environment:
+      JWT_SECRET: jwtsecret
+      DB_URL: postgres://root:root@database:5432/public
+    depends_on:
+      database:
+        condition: service_healthy
   database:
     image: postgres:17.4
     container_name: database
