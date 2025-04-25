@@ -415,17 +415,9 @@ var invalidRefreshTokenError = &AuthError{
 }
 
 func (s *Service) RefreshToken(ctx context.Context, user *models.User, refreshToken string) (*string, error) {
-	token, err := s.tokens.Get(ctx, user)
+	err := s.checkAuthUserRefreshToken(ctx, user, refreshToken)
 	if err != nil {
 		return nil, err
-	}
-
-	if token == nil {
-		return nil, invalidRefreshTokenError
-	}
-
-	if token.Token != refreshToken {
-		return nil, invalidRefreshTokenError
 	}
 
 	accessToken, err := s.generateAccessToken(user)
@@ -434,6 +426,37 @@ func (s *Service) RefreshToken(ctx context.Context, user *models.User, refreshTo
 	}
 
 	return accessToken, nil
+}
+
+func (s *Service) Logout(ctx context.Context, user *models.User, refreshToken string) error {
+	err := s.checkAuthUserRefreshToken(ctx, user, refreshToken)
+	if err != nil {
+		return err
+	}
+
+	err = s.tokens.Delete(ctx, user)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Service) checkAuthUserRefreshToken(ctx context.Context, user *models.User, refreshToken string) error {
+	token, err := s.tokens.Get(ctx, user)
+	if err != nil {
+		return err
+	}
+
+	if token == nil {
+		return invalidRefreshTokenError
+	}
+
+	if token.Token != refreshToken {
+		return invalidRefreshTokenError
+	}
+
+	return nil
 }
 
 func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool {

@@ -230,6 +230,39 @@ func (s *Server) Refresh() http.HandlerFunc {
 	})
 }
 
+func (s *Server) Logout() http.HandlerFunc {
+	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
+		authUser, ok := r.Context().Value("user").(*models.User)
+		if !ok {
+			w.WriteHeader(http.StatusUnauthorized)
+			return nil
+		}
+
+		body, err := handler.Decode[validations.RefreshValidator](r)
+		if err != nil {
+			if validationErrors := decodeValidationError(err); validationErrors != nil {
+				return buildValidationErrors(w, validationErrors)
+			}
+			return err
+		}
+
+		err = s.service.Logout(r.Context(), authUser, body.Token)
+		if err != nil {
+			if authError := decodeAuthError(err); authError != nil {
+				authErrResponse := ErrorResponse{Error: authError.Message}
+				if err := handler.Encode(authErrResponse, authError.Code, w); err != nil {
+					return err
+				}
+				return nil
+			} else {
+				return err
+			}
+		}
+
+		return nil
+	})
+}
+
 func (s *Server) PatchMe() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		authUser, ok := r.Context().Value("user").(*models.User)
