@@ -597,3 +597,78 @@ func getIP(r *http.Request) string {
 	}
 	return ip
 }
+
+// getUserRoutes godoc
+// @Summary Get user's routes
+// @Description Retrieve all saved routes for the authenticated user
+// @Tags Routes
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {array} dto.RouteDTO
+// @Failure 401 {object} api.ErrorResponse
+// @Failure 500 {object} api.ErrorResponse
+// @Router /user/me/routes [get]
+func (s *Server) getUserRoutes() http.HandlerFunc {
+	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
+		authUser, ok := r.Context().Value("user").(*models.User)
+		if !ok {
+			w.WriteHeader(http.StatusUnauthorized)
+			return nil
+		}
+		routes, err := s.service.GetUserRoutes(r.Context(), authUser)
+		if err != nil {
+			return err
+		}
+
+		var routesDTO = make([]dto.RouteDTO, len(routes))
+		for i, route := range routes {
+			routesDTO[i] = *dto.RouteToDTO(&route)
+		}
+		if err := handler.Encode(routesDTO, http.StatusOK, w); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+// GetUserRoutesById godoc
+// @Summary Get a user's route by ID
+// @Description Retrieve a specific route saved by the authenticated user using the route ID
+// @Tags Routes
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param routeId path int true "Route ID"
+// @Success 200 {object} dto.RouteDTO
+// @Failure 400 {object} api.ErrorResponse
+// @Failure 401 {object} api.ErrorResponse
+// @Failure 404 "Aucune route trouvée pour l'utilisateur authentifié"
+// @Failure 500 {object} api.ErrorResponse
+// @Router /user/me/routes/{routeId} [get]
+func (s *Server) GetUserRoutesById() http.HandlerFunc {
+	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
+		authUser, ok := r.Context().Value("user").(*models.User)
+		if !ok {
+			w.WriteHeader(http.StatusUnauthorized)
+			return nil
+		}
+
+		param := r.PathValue("routeId")
+		routeId, err := strconv.ParseInt(param, 10, 64)
+		if err != nil {
+			return err
+		}
+
+		route, err := s.service.GetUserRouteById(r.Context(), authUser.ID, routeId)
+		if err == nil && route == nil {
+			w.WriteHeader(http.StatusNotFound)
+			return nil
+		}
+
+		if err := handler.Encode(*dto.RouteToDTO(route), http.StatusOK, w); err != nil {
+			return err
+		}
+		return nil
+	})
+}

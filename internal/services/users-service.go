@@ -24,15 +24,17 @@ type Service struct {
 	users  *repository.Users
 	roles  *repository.Roles
 	tokens *repository.Tokens
+	routes *repository.Routes
 }
 
-func NewService(log *slog.Logger, config *config.Config, users *repository.Users, roles *repository.Roles, tokens *repository.Tokens) *Service {
+func NewService(log *slog.Logger, config *config.Config, users *repository.Users, roles *repository.Roles, tokens *repository.Tokens, routes *repository.Routes) *Service {
 	return &Service{
 		log:    log,
 		config: config,
 		users:  users,
 		roles:  roles,
 		tokens: tokens,
+		routes: routes,
 	}
 }
 
@@ -485,4 +487,25 @@ func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool {
 	}
 
 	return true
+}
+
+func (s *Service) GetUserRoutes(ctx context.Context, user *models.User) ([]models.Route, error) {
+	routes, err := s.routes.GetAllOfUser(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+	return routes, nil
+}
+
+func (s *Service) GetUserRouteById(ctx context.Context, userId, routeId int64) (*models.Route, error) {
+	route, err := s.routes.GetRouteUserById(ctx, userId, routeId)
+	if err != nil {
+		return nil, err
+	}
+
+	if route == nil {
+		return nil, nil
+	}
+
+	return route, nil
 }
