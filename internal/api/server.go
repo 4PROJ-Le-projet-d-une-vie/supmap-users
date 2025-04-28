@@ -42,6 +42,11 @@ func (s *Server) Start() error {
 	mux.Handle("PATCH /user/{id}", s.AuthMiddleware()(s.AdminMiddleware()(s.PatchUser())))
 	mux.Handle("DELETE /user/{id}", s.AuthMiddleware()(s.DeleteUser()))
 
+	// These routes are not exposed outside the LAN
+	//  server network and doesn't require securities
+	mux.Handle("GET /internal/user/all", s.GetUsers())
+	mux.Handle("GET /internal/user/{id}", s.GetUserById())
+
 	server := &http.Server{
 		Addr:    ":" + s.Config.PORT,
 		Handler: mux,
