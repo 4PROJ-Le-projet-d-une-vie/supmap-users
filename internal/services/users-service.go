@@ -512,20 +512,10 @@ func (s *Service) GetUserRouteById(ctx context.Context, userId, routeId int64) (
 
 func (s *Service) CreateRouteForUser(ctx context.Context, user *models.User, route *validations.RouteValidator) (*models.Route, error) {
 
-	routePoints := make([]models.Point, len(route.Route))
-	for i, point := range route.Route {
-		routePoints[i] = models.Point{
-			Latitude:  point.Latitude,
-			Longitude: point.Longitude,
-		}
-	}
-	routeToInsert := &models.Route{
-		UserID:    user.ID,
-		Name:      &route.Name,
-		Route:     routePoints,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	}
+	routeToInsert := mapRoute(route)
+	routeToInsert.UserID = user.ID
+	routeToInsert.CreatedAt = time.Now()
+	routeToInsert.UpdatedAt = time.Now()
 
 	err := s.routes.InsertRoute(ctx, routeToInsert)
 	if err != nil {
@@ -540,4 +530,41 @@ func (s *Service) CreateRouteForUser(ctx context.Context, user *models.User, rou
 	}
 
 	return routeToInsert, nil
+}
+
+func (s *Service) PatchUserRoute(ctx context.Context, user *models.User, routeID int64, route *validations.RouteValidator) (*models.Route, error) {
+	routeToUpdate := mapRoute(route)
+	routeToUpdate.ID = routeID
+	routeToUpdate.UserID = user.ID
+	routeToUpdate.UpdatedAt = time.Now()
+
+	exists, err := s.routes.GetRouteUserById(ctx, user.ID, routeID)
+	if err != nil {
+		return nil, err
+	}
+	if exists == nil {
+		return nil, nil
+	}
+
+	err = s.routes.UpdateRoute(ctx, routeToUpdate)
+	if err != nil {
+		return nil, err
+	}
+
+	return routeToUpdate, nil
+}
+
+func mapRoute(route *validations.RouteValidator) *models.Route {
+	points := make([]models.Point, len(route.Route))
+	for i, point := range route.Route {
+		points[i] = models.Point{
+			Latitude:  point.Latitude,
+			Longitude: point.Longitude,
+		}
+	}
+
+	return &models.Route{
+		Name:  &route.Name,
+		Route: points,
+	}
 }

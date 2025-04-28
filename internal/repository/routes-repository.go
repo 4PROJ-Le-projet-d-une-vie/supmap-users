@@ -54,3 +54,16 @@ func (r *Routes) InsertRoute(ctx context.Context, route *models.Route) error {
 
 	return nil
 }
+
+func (r *Routes) UpdateRoute(ctx context.Context, route *models.Route) error {
+	_, err := r.bun.NewUpdate().
+		Model(route).
+		Where("id = ?", route.ID).
+		OmitZero().
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

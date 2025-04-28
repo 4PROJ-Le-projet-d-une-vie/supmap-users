@@ -721,3 +721,57 @@ func (s *Server) CreateUserRoute() http.HandlerFunc {
 		return nil
 	})
 }
+
+// PatchUserRoute godoc
+// @Summary      Modifier une route utilisateur
+// @Description  Met à jour une route existante appartenant à l'utilisateur authentifié.
+// @Tags         Routes
+// @Accept       json
+// @Produce      json
+// @Security 	 BearerAuth
+// @Param        routeId path int true "Identifiant de la route"
+// @Param        body body validations.RouteValidator true "Nouvelles données de la route"
+// @Success      200 {object} dto.RouteDTO "Route mise à jour"
+// @Failure      400 {object} ErrorResponse "Requête invalide ou erreur de validation"
+// @Failure      401 {object} ErrorResponse "Non authentifié"
+// @Failure      404 "Route inexistante"
+// @Failure      500 {object} ErrorResponse "Erreur interne du serveur"
+// @Router       /user/me/routes/{routeId} [patch]
+func (s *Server) PatchUserRoute() http.HandlerFunc {
+	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
+		authUser, ok := r.Context().Value("user").(*models.User)
+		if !ok {
+			w.WriteHeader(http.StatusUnauthorized)
+			return nil
+		}
+
+		param := r.PathValue("routeId")
+		routeId, err := strconv.ParseInt(param, 10, 64)
+		if err != nil {
+			return err
+		}
+
+		body, err := handler.Decode[validations.RouteValidator](r)
+		if err != nil {
+			if validationErrors := decodeValidationError(err); validationErrors != nil {
+				return buildValidationErrors(w, validationErrors)
+			}
+			return err
+		}
+
+		route, err := s.service.PatchUserRoute(r.Context(), authUser, routeId, &body)
+		if err != nil && route == nil {
+			if route == nil {
+				w.WriteHeader(http.StatusNotFound)
+				return nil
+			}
+			return err
+		}
+
+		if err := handler.Encode(*dto.RouteToDTO(route), http.StatusOK, w); err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
