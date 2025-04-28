@@ -775,3 +775,39 @@ func (s *Server) PatchUserRoute() http.HandlerFunc {
 		return nil
 	})
 }
+
+// DeleteUserRoute godoc
+// @Summary      Supprimer une route utilisateur
+// @Description  Supprime une route appartenant à l'utilisateur authentifié.
+// @Tags         Routes
+// @Accept       json
+// @Produce      json
+// @Security 	 BearerAuth
+// @Param        routeId path int true "Identifiant de la route à supprimer"
+// @Success      204 {string} string "Route supprimée avec succès"
+// @Failure      401 {object} ErrorResponse "Non authentifié"
+// @Failure      500 {object} ErrorResponse "Erreur interne du serveur"
+// @Router       /user/me/routes/{routeId} [delete]
+func (s *Server) DeleteUserRoute() http.HandlerFunc {
+	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
+		authUser, ok := r.Context().Value("user").(*models.User)
+		if !ok {
+			w.WriteHeader(http.StatusUnauthorized)
+			return nil
+		}
+
+		param := r.PathValue("routeId")
+		routeId, err := strconv.ParseInt(param, 10, 64)
+		if err != nil {
+			return err
+		}
+
+		err = s.service.DeleteRoute(r.Context(), routeId, authUser)
+		if err != nil {
+			return err
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+		return nil
+	})
+}

@@ -568,3 +568,11 @@ func mapRoute(route *validations.RouteValidator) *models.Route {
 		Route: points,
 	}
 }
+
+func (s *Service) DeleteRoute(ctx context.Context, routeID int64, user *models.User) error {
+	err := s.routes.DeleteRoute(ctx, routeID, user.ID)
+	if err != nil {
+		return err
+	}
+	return nil
+}

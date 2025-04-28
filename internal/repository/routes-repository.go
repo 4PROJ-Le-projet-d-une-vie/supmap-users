@@ -67,3 +67,15 @@ func (r *Routes) UpdateRoute(ctx context.Context, route *models.Route) error {
 
 	return nil
 }
+
+func (r *Routes) DeleteRoute(ctx context.Context, routeId, userId int64) error {
+	_, err := r.bun.NewDelete().
+		Model(&models.Route{}).
+		Where("id = ?", routeId).
+		Where("user_id = ?", userId).
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+	return nil
+}
