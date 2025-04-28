@@ -44,6 +44,7 @@ func (s *Server) Start() error {
 
 	mux.Handle("GET /user/me/routes", s.AuthMiddleware()(s.getUserRoutes()))
 	mux.Handle("GET /user/me/routes/{routeId}", s.AuthMiddleware()(s.GetUserRoutesById()))
+	mux.Handle("POST /user/me/routes", s.AuthMiddleware()(s.CreateUserRoute()))
 
 	// These routes are not exposed outside the LAN
 	//  server network and doesn't require securities

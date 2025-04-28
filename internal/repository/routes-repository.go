@@ -42,3 +42,15 @@ func (r *Routes) GetRouteUserById(ctx context.Context, userId, routeId int64) (*
 	}
 	return &route, err
 }
+
+func (r *Routes) InsertRoute(ctx context.Context, route *models.Route) error {
+	_, err := r.bun.NewInsert().
+		Model(route).
+		Returning("id").
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

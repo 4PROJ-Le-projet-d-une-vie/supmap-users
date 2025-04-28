@@ -672,3 +672,52 @@ func (s *Server) GetUserRoutesById() http.HandlerFunc {
 		return nil
 	})
 }
+
+// CreateUserRoute godoc
+// @Summary      Créer une nouvelle route
+// @Description  Crée une nouvelle route pour l'utilisateur authentifié.
+// @Tags         Routes
+// @Accept       json
+// @Produce      json
+// @Security 	 BearerAuth
+// @Param        body body validations.RouteValidator true "Données de la route à créer"
+// @Success      201 {object} dto.RouteDTO "Route créée avec succès"
+// @Failure      400 {object} ErrorResponse "Requête invalide ou erreur de validation"
+// @Failure      401 {object} ErrorResponse "Non authentifié"
+// @Failure      500 {object} ErrorResponse "Erreur interne du serveur"
+// @Router       /user/me/routes [post]
+func (s *Server) CreateUserRoute() http.HandlerFunc {
+	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
+		authUser, ok := r.Context().Value("user").(*models.User)
+		if !ok {
+			w.WriteHeader(http.StatusUnauthorized)
+			return nil
+		}
+
+		body, err := handler.Decode[validations.RouteValidator](r)
+		if err != nil {
+			if validationErrors := decodeValidationError(err); validationErrors != nil {
+				return buildValidationErrors(w, validationErrors)
+			}
+			return err
+		}
+
+		route, err := s.service.CreateRouteForUser(r.Context(), authUser, &body)
+		if err != nil {
+			if authErr := decodeAuthError(err); authErr != nil {
+				authErrResponse := ErrorResponse{Error: authErr.Message}
+				if err := handler.Encode(authErrResponse, authErr.Code, w); err != nil {
+					return err
+				}
+				return nil
+			}
+			return err
+		}
+
+		if err := handler.Encode(route, http.StatusCreated, w); err != nil {
+			return err
+		}
+
+		return nil
+	})
+}

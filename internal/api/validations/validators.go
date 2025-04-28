@@ -2,6 +2,7 @@ package validations
 
 import (
 	"github.com/go-playground/validator/v10"
+	"supmap-users/internal/models"
 )
 
 type ValidationError struct {
@@ -88,6 +89,19 @@ type RefreshValidator struct {
 }
 
 func (r RefreshValidator) Validate() error {
+	validate := validator.New()
+	if err := validate.Struct(r); err != nil {
+		return err
+	}
+	return nil
+}
+
+type RouteValidator struct {
+	Name  string         `json:"name" validate:"required,min=3,max=100"`
+	Route []models.Point `json:"route" validate:"required"`
+}
+
+func (r RouteValidator) Validate() error {
 	validate := validator.New()
 	if err := validate.Struct(r); err != nil {
 		return err

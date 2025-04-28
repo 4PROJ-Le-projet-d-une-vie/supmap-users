@@ -509,3 +509,35 @@ func (s *Service) GetUserRouteById(ctx context.Context, userId, routeId int64) (
 
 	return route, nil
 }
+
+func (s *Service) CreateRouteForUser(ctx context.Context, user *models.User, route *validations.RouteValidator) (*models.Route, error) {
+
+	routePoints := make([]models.Point, len(route.Route))
+	for i, point := range route.Route {
+		routePoints[i] = models.Point{
+			Latitude:  point.Latitude,
+			Longitude: point.Longitude,
+		}
+	}
+	routeToInsert := &models.Route{
+		UserID:    user.ID,
+		Name:      &route.Name,
+		Route:     routePoints,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	err := s.routes.InsertRoute(ctx, routeToInsert)
+	if err != nil {
+		return nil, err
+	}
+
+	if &routeToInsert.ID == nil {
+		return nil, &AuthError{
+			Message: "Cannot retrieve inserted route",
+			Code:    400,
+		}
+	}
+
+	return routeToInsert, nil
+}
