@@ -23,6 +23,8 @@ CREATE TABLE users
     updated_at      TIMESTAMPTZ(0)          DEFAULT CURRENT_TIMESTAMP
 );
 
+INSERT INTO roles (id, name) VALUES (1, 'ROLE_ADMIN'), (2, 'ROLE_USER');
+
 -- +goose StatementEnd
 
 -- +goose Down
