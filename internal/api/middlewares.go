@@ -41,7 +41,15 @@ func (s *Server) AuthMiddleware() func(http.Handler) http.Handler {
 			user, err := s.service.GetUserByID(r.Context(), *userID)
 			if err != nil {
 				if err := handler.Encode(invalidUser, http.StatusUnauthorized, w); err != nil {
-					s.log.Error("Error while try to retrieve user", err)
+					s.log.Error("Error encoding response", err)
+					w.WriteHeader(http.StatusInternalServerError)
+				}
+				return
+			}
+
+			if user == nil {
+				if err := handler.Encode(invalidUser, http.StatusUnauthorized, w); err != nil {
+					s.log.Error("Error encoding response", err)
 					w.WriteHeader(http.StatusInternalServerError)
 				}
 				return

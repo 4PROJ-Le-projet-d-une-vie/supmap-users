@@ -35,7 +35,7 @@ type ErrorResponse struct {
 // @Security BearerAuth
 // @Produce json
 // @Success 200 {array} dto.UserDTO
-// @Failure 401 {object} api.ErrorResponse "Non authentifié"
+// @Failure 401 {object} services.ErrorWithCode "Non authentifié"
 // @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
 // @Router /user/all [get]
 func (s *Server) GetUsers() http.HandlerFunc {
@@ -50,11 +50,7 @@ func (s *Server) GetUsers() http.HandlerFunc {
 			usersDTO[i] = *dto.UserToDTO(&user)
 		}
 
-		if err := handler.Encode[[]dto.UserDTO](usersDTO, http.StatusOK, w); err != nil {
-			return err
-		}
-
-		return nil
+		return encode(usersDTO, http.StatusOK, w)
 	})
 }
 
@@ -66,15 +62,13 @@ func (s *Server) GetUsers() http.HandlerFunc {
 // @Produce json
 // @Param id path int true "ID de l'utilisateur"
 // @Success 200 {object} dto.UserDTO
-// @Failure 401 {object} api.ErrorResponse "Non authentifié"
-// @Failure 404 {object} api.ErrorResponse "Utilisateur non trouvé"
+// @Failure 401 {object} services.ErrorWithCode "Non authentifié"
+// @Failure 404 {object} services.ErrorWithCode "Utilisateur non trouvé"
 // @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
 // @Router /user/{id} [get]
 func (s *Server) GetUserById() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
-		param := r.PathValue("id")
-
-		id, err := strconv.ParseInt(param, 10, 64)
+		id, err := decodeParamAsInt64("id", r)
 		if err != nil {
 			return err
 		}
@@ -85,15 +79,10 @@ func (s *Server) GetUserById() http.HandlerFunc {
 		}
 
 		if user == nil {
-			w.WriteHeader(http.StatusNotFound)
-			return nil
+			return encodeNil(http.StatusNotFound, w)
 		}
 
-		if err := handler.Encode[dto.UserDTO](*dto.UserToDTO(user), http.StatusOK, w); err != nil {
-			return err
-		}
-
-		return nil
+		return encode(*dto.UserToDTO(user), http.StatusOK, w)
 	})
 }
 
@@ -104,21 +93,17 @@ func (s *Server) GetUserById() http.HandlerFunc {
 // @Security BearerAuth
 // @Produce json
 // @Success 200 {object} dto.UserDTO
-// @Failure 401 {object} api.ErrorResponse "Non authentifié"
+// @Failure 401 {object} services.ErrorWithCode "Non authentifié"
 // @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
 // @Router /user/me [get]
 func (s *Server) GetMe() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		user, ok := r.Context().Value("user").(*models.User)
 		if !ok {
-			w.WriteHeader(http.StatusUnauthorized)
-			return nil
+			return encodeNil(http.StatusUnauthorized, w)
 		}
 
-		if err := handler.Encode[dto.UserDTO](*dto.UserToDTO(user), http.StatusOK, w); err != nil {
-			return err
-		}
-		return nil
+		return encode(*dto.UserToDTO(user), http.StatusOK, w)
 	})
 }
 
@@ -130,8 +115,8 @@ func (s *Server) GetMe() http.HandlerFunc {
 // @Produce json
 // @Param data body validations.LoginValidator true "Données de connexion"
 // @Success 200 {object} api.TokenResponse
-// @Failure 400 {object} api.ErrorResponse
-// @Failure 401 {object} api.ErrorResponse
+// @Failure 400 {object} services.ErrorWithCode
+// @Failure 401 {object} services.ErrorWithCode
 // @Failure 500 {object} api.InternalErrorResponse
 // @Router /login [post]
 func (s *Server) Login() http.HandlerFunc {
@@ -140,12 +125,8 @@ func (s *Server) Login() http.HandlerFunc {
 
 		user, err := s.service.Login(r.Context(), body.Email, body.Handle, body.Password)
 		if err != nil {
-			if authErr := decodeAuthError(err); authErr != nil {
-				authErrResponse := ErrorResponse{Error: authErr.Message}
-				if err := handler.Encode(authErrResponse, authErr.Code, w); err != nil {
-					return err
-				}
-				return nil
+			if ewc := services.DecodeErrorWithCode(err); ewc != nil {
+				return encode(ewc, ewc.Code, w)
 			}
 			return err
 		}
@@ -159,10 +140,8 @@ func (s *Server) Login() http.HandlerFunc {
 			AccessToken:  *accessToken,
 			RefreshToken: *refreshToken,
 		}
-		if err := handler.Encode[TokenResponse](tokenResponse, http.StatusOK, w); err != nil {
-			return err
-		}
-		return nil
+
+		return encode(tokenResponse, http.StatusOK, w)
 	})
 }
 
@@ -187,20 +166,13 @@ func (s *Server) Register() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		body, err := handler.Decode[validations.CreateUserValidator](r)
 		if err != nil {
-			if validationErrors := decodeValidationError(err); validationErrors != nil {
-				return buildValidationErrors(w, validationErrors)
-			}
-			return err
+			return buildValidationErrors(err, w)
 		}
 
 		user, err := s.service.CreateUser(r.Context(), body)
 		if err != nil {
-			if authError := decodeAuthError(err); authError != nil {
-				authErrResponse := ErrorResponse{Error: authError.Message}
-				if err := handler.Encode(authErrResponse, authError.Code, w); err != nil {
-					return err
-				}
-				return nil
+			if ewc := services.DecodeErrorWithCode(err); ewc != nil {
+				return encode(ewc, ewc.Code, w)
 			} else {
 				return err
 			}
@@ -218,11 +190,7 @@ func (s *Server) Register() http.HandlerFunc {
 				RefreshToken: *refreshToken,
 			},
 		}
-		if err := handler.Encode[UserWithTokenResponse](userWithTokenResponse, http.StatusOK, w); err != nil {
-			return err
-		}
-
-		return nil
+		return encode(userWithTokenResponse, http.StatusOK, w)
 	})
 }
 
@@ -236,38 +204,26 @@ func (s *Server) Register() http.HandlerFunc {
 // @Param payload body validations.AdminCreateUserValidator true "Données du nouvel utilisateur"
 // @Success 200 {object} dto.UserDTO
 // @Failure 400 {object} validations.ValidationError "Erreur de validation"
-// @Failure 401 {object} api.ErrorResponse "Non authentifié"
-// @Failure 403 {object} api.ErrorResponse "Non autorisé (admin requis)"
+// @Failure 401 {object} services.ErrorWithCode "Non authentifié"
+// @Failure 403 {object} services.ErrorWithCode "Non autorisé (admin requis)"
 // @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
 // @Router /user [post]
 func (s *Server) CreateUser() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		body, err := handler.Decode[validations.AdminCreateUserValidator](r)
 		if err != nil {
-			if validationErrors := decodeValidationError(err); validationErrors != nil {
-				return buildValidationErrors(w, validationErrors)
-			}
-			return err
+			return buildValidationErrors(err, w)
 		}
 
 		user, err := s.service.CreateUserForAdmin(r.Context(), body)
 		if err != nil {
-			if authError := decodeAuthError(err); authError != nil {
-				authErrResponse := ErrorResponse{Error: authError.Message}
-				if err := handler.Encode(authErrResponse, authError.Code, w); err != nil {
-					return err
-				}
-				return nil
-			} else {
-				return err
+			if ewc := services.DecodeErrorWithCode(err); ewc != nil {
+				return encode(ewc, ewc.Code, w)
 			}
-		}
-
-		if err := handler.Encode[dto.UserDTO](*dto.UserToDTO(user), http.StatusOK, w); err != nil {
 			return err
 		}
 
-		return nil
+		return encode(*dto.UserToDTO(user), http.StatusOK, w)
 	})
 }
 
@@ -280,45 +236,34 @@ func (s *Server) CreateUser() http.HandlerFunc {
 // @Produce json
 // @Param data body validations.RefreshValidator true "Refresh Token"
 // @Success 200 {object} api.TokenResponse
-// @Failure 400 {object} api.ErrorResponse "Erreur de validation ou refresh token invalide"
-// @Failure 401 {object} api.ErrorResponse "Non authentifié"
+// @Failure 400 {object} services.ErrorWithCode "Erreur de validation ou refresh token invalide"
+// @Failure 401 {object} services.ErrorWithCode "Non authentifié"
 // @Router /refresh [post]
 func (s *Server) Refresh() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		authUser, ok := r.Context().Value("user").(*models.User)
 		if !ok {
-			w.WriteHeader(http.StatusUnauthorized)
-			return nil
+			return encodeNil(http.StatusUnauthorized, w)
 		}
 
 		body, err := handler.Decode[validations.RefreshValidator](r)
 		if err != nil {
-			if validationErrors := decodeValidationError(err); validationErrors != nil {
-				return buildValidationErrors(w, validationErrors)
-			}
-			return err
+			return buildValidationErrors(err, w)
 		}
 
 		accessToken, err := s.service.RefreshToken(r.Context(), authUser, body.Token)
 		if err != nil {
-			if authError := decodeAuthError(err); authError != nil {
-				authErrResponse := ErrorResponse{Error: authError.Message}
-				if err := handler.Encode(authErrResponse, authError.Code, w); err != nil {
-					return err
-				}
-				return nil
-			} else {
-				return err
+			if ewc := services.DecodeErrorWithCode(err); ewc != nil {
+				return encode(ewc, ewc.Code, w)
 			}
+			return err
 		}
 
 		tokenResponse := TokenResponse{
 			AccessToken: *accessToken,
 		}
-		if err := handler.Encode[TokenResponse](tokenResponse, http.StatusOK, w); err != nil {
-			return err
-		}
-		return nil
+
+		return encode(tokenResponse, http.StatusOK, w)
 	})
 }
 
@@ -331,40 +276,30 @@ func (s *Server) Refresh() http.HandlerFunc {
 // @Produce json
 // @Param data body validations.RefreshValidator true "Refresh Token"
 // @Success 204 "Déconnexion réussie"
-// @Failure 400 {object} api.ErrorResponse "Erreur de validation ou refresh token invalide"
-// @Failure 401 {object} api.ErrorResponse "Non authentifié"
+// @Failure 400 {object} services.ErrorWithCode "Erreur de validation ou refresh token invalide"
+// @Failure 401 {object} services.ErrorWithCode "Non authentifié"
 // @Router /logout [post]
 func (s *Server) Logout() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		authUser, ok := r.Context().Value("user").(*models.User)
 		if !ok {
-			w.WriteHeader(http.StatusUnauthorized)
-			return nil
+			return encodeNil(http.StatusUnauthorized, w)
 		}
 
 		body, err := handler.Decode[validations.RefreshValidator](r)
 		if err != nil {
-			if validationErrors := decodeValidationError(err); validationErrors != nil {
-				return buildValidationErrors(w, validationErrors)
-			}
-			return err
+			return buildValidationErrors(err, w)
 		}
 
 		err = s.service.Logout(r.Context(), authUser, body.Token)
 		if err != nil {
-			if authError := decodeAuthError(err); authError != nil {
-				authErrResponse := ErrorResponse{Error: authError.Message}
-				if err := handler.Encode(authErrResponse, authError.Code, w); err != nil {
-					return err
-				}
-				return nil
-			} else {
-				return err
+			if ewc := services.DecodeErrorWithCode(err); ewc != nil {
+				return encode(ewc, ewc.Code, w)
 			}
+			return err
 		}
 
-		w.WriteHeader(http.StatusNoContent)
-		return nil
+		return encodeNil(http.StatusNoContent, w)
 	})
 }
 
@@ -378,38 +313,24 @@ func (s *Server) Logout() http.HandlerFunc {
 // @Param payload body validations.UpdateUserValidator true "Données à mettre à jour"
 // @Success 200 {object} api.UserWithTokenResponse
 // @Failure 400 {object} validations.ValidationError "Erreur de validation"
-// @Failure 401 {object} api.ErrorResponse "Non authentifié"
-// @Failure 409 {object} api.ErrorResponse "Conflit (par ex. email ou handle déjà utilisé)"
+// @Failure 401 {object} services.ErrorWithCode "Non authentifié"
+// @Failure 409 {object} services.ErrorWithCode "Conflit (par ex. email ou handle déjà utilisé)"
 // @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
 // @Router /user/me [patch]
 func (s *Server) PatchMe() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		authUser, ok := r.Context().Value("user").(*models.User)
 		if !ok {
-			w.WriteHeader(http.StatusUnauthorized)
-			return nil
+			return encodeNil(http.StatusUnauthorized, w)
 		}
 
 		body, err := handler.Decode[validations.UpdateUserValidator](r)
 		if err != nil {
-			if validationErrors := decodeValidationError(err); validationErrors != nil {
-				return buildValidationErrors(w, validationErrors)
-			}
-			return err
+			return buildValidationErrors(err, w)
 		}
 
 		user, err := s.service.PatchUser(r.Context(), authUser.ID, body)
 		if err != nil {
-			if updateErr := decodeUpdateError(err); updateErr != nil {
-
-				updateErrResponse := ErrorResponse{
-					Error: updateErr.Message,
-				}
-				if err := handler.Encode(updateErrResponse, http.StatusConflict, w); err != nil {
-					return err
-				}
-				return nil
-			}
 			return err
 		}
 
@@ -425,11 +346,7 @@ func (s *Server) PatchMe() http.HandlerFunc {
 				RefreshToken: *refreshToken,
 			},
 		}
-		if err := handler.Encode[UserWithTokenResponse](userWithTokenResponse, http.StatusOK, w); err != nil {
-			return err
-		}
-
-		return nil
+		return encode(userWithTokenResponse, http.StatusOK, w)
 	})
 }
 
@@ -444,26 +361,21 @@ func (s *Server) PatchMe() http.HandlerFunc {
 // @Param payload body validations.UpdateUserValidator true "Données à mettre à jour"
 // @Success 200 {object} dto.UserDTO
 // @Failure 400 {object} validations.ValidationError "Erreur de validation"
-// @Failure 401 {object} api.ErrorResponse "Non authentifié"
-// @Failure 403 {object} api.ErrorResponse "Accès interdit (l'utilisateur n'est pas administrateur)"
-// @Failure 404 {object} api.ErrorResponse "Utilisateur non trouvé"
+// @Failure 401 {object} services.ErrorWithCode "Non authentifié"
+// @Failure 403 {object} services.ErrorWithCode "Accès interdit (l'utilisateur n'est pas administrateur)"
+// @Failure 404 {object} services.ErrorWithCode "Utilisateur non trouvé"
 // @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
 // @Router /user/{id} [patch]
 func (s *Server) PatchUser() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
-		param := r.PathValue("id")
-
-		id, err := strconv.ParseInt(param, 10, 64)
+		id, err := decodeParamAsInt64("id", r)
 		if err != nil {
 			return err
 		}
 
 		body, err := handler.Decode[validations.UpdateUserValidator](r)
 		if err != nil {
-			if validationErrors := decodeValidationError(err); validationErrors != nil {
-				return buildValidationErrors(w, validationErrors)
-			}
-			return err
+			return buildValidationErrors(err, w)
 		}
 
 		user, err := s.service.PatchUser(r.Context(), id, body)
@@ -471,11 +383,7 @@ func (s *Server) PatchUser() http.HandlerFunc {
 			return err
 		}
 
-		if err := handler.Encode[dto.UserDTO](*dto.UserToDTO(user), http.StatusOK, w); err != nil {
-			return err
-		}
-
-		return nil
+		return encode(*dto.UserToDTO(user), http.StatusOK, w)
 	})
 }
 
@@ -489,97 +397,261 @@ func (s *Server) PatchUser() http.HandlerFunc {
 // @Param id path int true "ID de l'utilisateur à supprimer"
 // @Success 204 "Utilisateur supprimé avec succès"
 // @Failure 400 {object} api.InternalErrorResponse "Erreur interne du serveur"
-// @Failure 401 {object} api.ErrorResponse "Non authentifié ou non autorisé"
-// @Failure 404 {object} api.ErrorResponse "Utilisateur non trouvé"
+// @Failure 401 {object} services.ErrorWithCode "Non authentifié ou non autorisé"
+// @Failure 404 {object} services.ErrorWithCode "Utilisateur non trouvé"
 // @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
 // @Router /user/{id} [delete]
 func (s *Server) DeleteUser() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
-		param := r.PathValue("id")
-
-		id, err := strconv.ParseInt(param, 10, 64)
+		id, err := decodeParamAsInt64("id", r)
 		if err != nil {
 			return err
 		}
 
 		authUser, ok := r.Context().Value("user").(*models.User)
 		if !ok {
-			s.log.Warn("Unauthenticated request to DELETE /user/" + param)
-			w.WriteHeader(http.StatusUnauthorized)
-			return nil
+			s.log.Warn("Unauthenticated request to DELETE /user/" + strconv.FormatInt(id, 10))
+			return encodeNil(http.StatusUnauthorized, w)
 		}
 
 		if authUser.Role.Name != "ROLE_ADMIN" && authUser.ID != id {
-			w.WriteHeader(http.StatusUnauthorized)
-			return nil
+			return encodeNil(http.StatusUnauthorized, w)
 		}
 
 		if err := s.service.DeleteUser(r.Context(), id); err != nil {
-			if deleteErr := decodeDeleteError(err); deleteErr != nil {
-				w.WriteHeader(http.StatusNotFound)
-
-				deleteErrResponse := ErrorResponse{Error: deleteErr.Error()}
-				if err := handler.Encode(deleteErrResponse, http.StatusInternalServerError, w); err != nil {
-
-				}
-
-				return nil
+			if ewc := services.DecodeErrorWithCode(err); ewc != nil {
+				return encode(ewc, ewc.Code, w)
 			}
 			return err
 		}
 
-		w.WriteHeader(http.StatusNoContent)
-		return nil
+		return encodeNil(http.StatusNoContent, w)
 	})
 }
 
-func decodeValidationError(err error) validator.ValidationErrors {
+// getUserRoutes godoc
+// @Summary Get user's routes
+// @Description Retrieve all saved routes for the authenticated user
+// @Tags Routes
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {array} dto.RouteDTO
+// @Failure 401 {object} services.ErrorWithCode
+// @Failure 500 {object} api.InternalErrorResponse
+// @Router /user/me/routes [get]
+func (s *Server) getUserRoutes() http.HandlerFunc {
+	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
+		authUser, ok := r.Context().Value("user").(*models.User)
+		if !ok {
+			return encodeNil(http.StatusUnauthorized, w)
+		}
+
+		routes, err := s.service.GetUserRoutes(r.Context(), authUser)
+		if err != nil {
+			return err
+		}
+
+		var routesDTO = make([]dto.RouteDTO, len(routes))
+		for i, route := range routes {
+			routesDTO[i] = *dto.RouteToDTO(&route)
+		}
+
+		return encode(routesDTO, http.StatusOK, w)
+	})
+}
+
+// GetUserRoutesById godoc
+// @Summary Get a user's route by ID
+// @Description Retrieve a specific route saved by the authenticated user using the route ID
+// @Tags Routes
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param routeId path int true "Route ID"
+// @Success 200 {object} dto.RouteDTO
+// @Failure 400 {object} services.ErrorWithCode
+// @Failure 401 {object} services.ErrorWithCode
+// @Failure 404 "Aucune route trouvée pour l'utilisateur authentifié"
+// @Failure 500 {object} api.InternalErrorResponse
+// @Router /user/me/routes/{routeId} [get]
+func (s *Server) GetUserRoutesById() http.HandlerFunc {
+	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
+		authUser, ok := r.Context().Value("user").(*models.User)
+		if !ok {
+			return encodeNil(http.StatusUnauthorized, w)
+		}
+
+		routeId, err := decodeParamAsInt64("routeId", r)
+		if err != nil {
+			return err
+		}
+
+		route, err := s.service.GetUserRouteById(r.Context(), authUser.ID, routeId)
+		if err == nil && route == nil {
+			return encodeNil(http.StatusNotFound, w)
+		}
+
+		return encode(*dto.RouteToDTO(route), http.StatusOK, w)
+	})
+}
+
+// CreateUserRoute godoc
+// @Summary      Créer une nouvelle route
+// @Description  Crée une nouvelle route pour l'utilisateur authentifié.
+// @Tags         Routes
+// @Accept       json
+// @Produce      json
+// @Security 	 BearerAuth
+// @Param        body body validations.RouteValidator true "Données de la route à créer"
+// @Success      201 {object} dto.RouteDTO "Route créée avec succès"
+// @Failure      400 {object} services.ErrorWithCode "Requête invalide ou erreur de validation"
+// @Failure      401 {object} services.ErrorWithCode "Non authentifié"
+// @Failure      500 {object} api.InternalErrorResponse "Erreur interne du serveur"
+// @Router       /user/me/routes [post]
+func (s *Server) CreateUserRoute() http.HandlerFunc {
+	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
+		authUser, ok := r.Context().Value("user").(*models.User)
+		if !ok {
+			return encodeNil(http.StatusUnauthorized, w)
+		}
+
+		body, err := handler.Decode[validations.RouteValidator](r)
+		if err != nil {
+			return buildValidationErrors(err, w)
+		}
+
+		route, err := s.service.CreateRouteForUser(r.Context(), authUser, &body)
+		if err != nil {
+			if ewc := services.DecodeErrorWithCode(err); ewc != nil {
+				return encode(ewc, ewc.Code, w)
+			}
+			return err
+		}
+
+		return encode(route, http.StatusCreated, w)
+	})
+}
+
+// PatchUserRoute godoc
+// @Summary      Modifier une route utilisateur
+// @Description  Met à jour une route existante appartenant à l'utilisateur authentifié.
+// @Tags         Routes
+// @Accept       json
+// @Produce      json
+// @Security 	 BearerAuth
+// @Param        routeId path int true "Identifiant de la route"
+// @Param        body body validations.RouteValidator true "Nouvelles données de la route"
+// @Success      200 {object} dto.RouteDTO "Route mise à jour"
+// @Failure      400 {object} services.ErrorWithCode "Requête invalide ou erreur de validation"
+// @Failure      401 {object} services.ErrorWithCode "Non authentifié"
+// @Failure      404 "Route inexistante"
+// @Failure      500 {object} api.InternalErrorResponse "Erreur interne du serveur"
+// @Router       /user/me/routes/{routeId} [patch]
+func (s *Server) PatchUserRoute() http.HandlerFunc {
+	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
+		authUser, ok := r.Context().Value("user").(*models.User)
+		if !ok {
+			return encodeNil(http.StatusUnauthorized, w)
+		}
+
+		routeId, err := decodeParamAsInt64("routeId", r)
+		if err != nil {
+			return err
+		}
+
+		body, err := handler.Decode[validations.RouteValidator](r)
+		if err != nil {
+			return buildValidationErrors(err, w)
+		}
+
+		route, err := s.service.PatchUserRoute(r.Context(), authUser, routeId, &body)
+		if err != nil || route == nil {
+			if route == nil {
+				return encodeNil(http.StatusNotFound, w)
+			}
+			return err
+		}
+
+		fmt.Println(route)
+		return encode(*dto.RouteToDTO(route), http.StatusOK, w)
+	})
+}
+
+// DeleteUserRoute godoc
+// @Summary      Supprimer une route utilisateur
+// @Description  Supprime une route appartenant à l'utilisateur authentifié.
+// @Tags         Routes
+// @Accept       json
+// @Produce      json
+// @Security 	 BearerAuth
+// @Param        routeId path int true "Identifiant de la route à supprimer"
+// @Success      204 {string} string "Route supprimée avec succès"
+// @Failure      401 {object} services.ErrorWithCode "Non authentifié"
+// @Failure      500 {object} api.InternalErrorResponse "Erreur interne du serveur"
+// @Router       /user/me/routes/{routeId} [delete]
+func (s *Server) DeleteUserRoute() http.HandlerFunc {
+	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
+		authUser, ok := r.Context().Value("user").(*models.User)
+		if !ok {
+			return encodeNil(http.StatusUnauthorized, w)
+		}
+
+		routeId, err := decodeParamAsInt64("routeId", r)
+		if err != nil {
+			return err
+		}
+
+		err = s.service.DeleteRoute(r.Context(), routeId, authUser)
+		if err != nil {
+			if ewc := services.DecodeErrorWithCode(err); ewc != nil {
+				return encodeNil(ewc.Code, w)
+			}
+		}
+
+		return encode(nil, 204, w)
+	})
+}
+
+func decodeParamAsInt64(param string, r *http.Request) (int64, error) {
+	value := r.PathValue(param)
+	converted, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return converted, nil
+}
+
+func encodeNil(status int, w http.ResponseWriter) error {
+	return encode(nil, status, w)
+}
+
+func encode(body any, status int, w http.ResponseWriter) error {
+	if body == nil {
+		w.WriteHeader(status)
+		return nil
+	}
+
+	if err := handler.Encode(body, status, w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func buildValidationErrors(err error, w http.ResponseWriter) error {
 	var ve validator.ValidationErrors
-	if errors.As(err, &ve) {
-		return ve
-	}
-	return nil
-}
-
-func decodeAuthError(err error) *services.AuthError {
-	var ae *services.AuthError
-	if errors.As(err, &ae) {
-		return ae
+	if !errors.As(err, &ve) {
+		return err
 	}
 
-	return nil
-}
-
-func decodeUpdateError(err error) *services.UpdateError {
-	var ue *services.UpdateError
-	if errors.As(err, &ue) {
-		return ue
-	}
-	return nil
-}
-
-func decodeDeleteError(err error) *services.DeleteError {
-	var de *services.DeleteError
-	if errors.As(err, &de) {
-		return de
-	}
-	return nil
-}
-
-func buildValidationErrors(w http.ResponseWriter, errors validator.ValidationErrors) error {
 	errs := make(map[string]string)
 
-	for _, fieldErr := range errors {
+	for _, fieldErr := range ve {
 		errs[fieldErr.Field()] = fmt.Sprintf("failed on '%s'", fieldErr.Tag())
 	}
 
 	validationErrorResponse := validations.ValidationError{Message: "Validation Error", Details: errs}
-	err := handler.Encode[validations.ValidationError](validationErrorResponse, http.StatusBadRequest, w)
-	if err != nil {
-		return err
-	}
-
-	return nil // Finally return nil to fully controls HTTP error
+	return encode(validationErrorResponse, http.StatusBadRequest, w)
 }
 
 func getIP(r *http.Request) string {
@@ -596,218 +668,4 @@ func getIP(r *http.Request) string {
 		return r.RemoteAddr
 	}
 	return ip
-}
-
-// getUserRoutes godoc
-// @Summary Get user's routes
-// @Description Retrieve all saved routes for the authenticated user
-// @Tags Routes
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Success 200 {array} dto.RouteDTO
-// @Failure 401 {object} api.ErrorResponse
-// @Failure 500 {object} api.ErrorResponse
-// @Router /user/me/routes [get]
-func (s *Server) getUserRoutes() http.HandlerFunc {
-	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
-		authUser, ok := r.Context().Value("user").(*models.User)
-		if !ok {
-			w.WriteHeader(http.StatusUnauthorized)
-			return nil
-		}
-		routes, err := s.service.GetUserRoutes(r.Context(), authUser)
-		if err != nil {
-			return err
-		}
-
-		var routesDTO = make([]dto.RouteDTO, len(routes))
-		for i, route := range routes {
-			routesDTO[i] = *dto.RouteToDTO(&route)
-		}
-		if err := handler.Encode(routesDTO, http.StatusOK, w); err != nil {
-			return err
-		}
-		return nil
-	})
-}
-
-// GetUserRoutesById godoc
-// @Summary Get a user's route by ID
-// @Description Retrieve a specific route saved by the authenticated user using the route ID
-// @Tags Routes
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param routeId path int true "Route ID"
-// @Success 200 {object} dto.RouteDTO
-// @Failure 400 {object} api.ErrorResponse
-// @Failure 401 {object} api.ErrorResponse
-// @Failure 404 "Aucune route trouvée pour l'utilisateur authentifié"
-// @Failure 500 {object} api.ErrorResponse
-// @Router /user/me/routes/{routeId} [get]
-func (s *Server) GetUserRoutesById() http.HandlerFunc {
-	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
-		authUser, ok := r.Context().Value("user").(*models.User)
-		if !ok {
-			w.WriteHeader(http.StatusUnauthorized)
-			return nil
-		}
-
-		param := r.PathValue("routeId")
-		routeId, err := strconv.ParseInt(param, 10, 64)
-		if err != nil {
-			return err
-		}
-
-		route, err := s.service.GetUserRouteById(r.Context(), authUser.ID, routeId)
-		if err == nil && route == nil {
-			w.WriteHeader(http.StatusNotFound)
-			return nil
-		}
-
-		if err := handler.Encode(*dto.RouteToDTO(route), http.StatusOK, w); err != nil {
-			return err
-		}
-		return nil
-	})
-}
-
-// CreateUserRoute godoc
-// @Summary      Créer une nouvelle route
-// @Description  Crée une nouvelle route pour l'utilisateur authentifié.
-// @Tags         Routes
-// @Accept       json
-// @Produce      json
-// @Security 	 BearerAuth
-// @Param        body body validations.RouteValidator true "Données de la route à créer"
-// @Success      201 {object} dto.RouteDTO "Route créée avec succès"
-// @Failure      400 {object} ErrorResponse "Requête invalide ou erreur de validation"
-// @Failure      401 {object} ErrorResponse "Non authentifié"
-// @Failure      500 {object} ErrorResponse "Erreur interne du serveur"
-// @Router       /user/me/routes [post]
-func (s *Server) CreateUserRoute() http.HandlerFunc {
-	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
-		authUser, ok := r.Context().Value("user").(*models.User)
-		if !ok {
-			w.WriteHeader(http.StatusUnauthorized)
-			return nil
-		}
-
-		body, err := handler.Decode[validations.RouteValidator](r)
-		if err != nil {
-			if validationErrors := decodeValidationError(err); validationErrors != nil {
-				return buildValidationErrors(w, validationErrors)
-			}
-			return err
-		}
-
-		route, err := s.service.CreateRouteForUser(r.Context(), authUser, &body)
-		if err != nil {
-			if authErr := decodeAuthError(err); authErr != nil {
-				authErrResponse := ErrorResponse{Error: authErr.Message}
-				if err := handler.Encode(authErrResponse, authErr.Code, w); err != nil {
-					return err
-				}
-				return nil
-			}
-			return err
-		}
-
-		if err := handler.Encode(route, http.StatusCreated, w); err != nil {
-			return err
-		}
-
-		return nil
-	})
-}
-
-// PatchUserRoute godoc
-// @Summary      Modifier une route utilisateur
-// @Description  Met à jour une route existante appartenant à l'utilisateur authentifié.
-// @Tags         Routes
-// @Accept       json
-// @Produce      json
-// @Security 	 BearerAuth
-// @Param        routeId path int true "Identifiant de la route"
-// @Param        body body validations.RouteValidator true "Nouvelles données de la route"
-// @Success      200 {object} dto.RouteDTO "Route mise à jour"
-// @Failure      400 {object} ErrorResponse "Requête invalide ou erreur de validation"
-// @Failure      401 {object} ErrorResponse "Non authentifié"
-// @Failure      404 "Route inexistante"
-// @Failure      500 {object} ErrorResponse "Erreur interne du serveur"
-// @Router       /user/me/routes/{routeId} [patch]
-func (s *Server) PatchUserRoute() http.HandlerFunc {
-	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
-		authUser, ok := r.Context().Value("user").(*models.User)
-		if !ok {
-			w.WriteHeader(http.StatusUnauthorized)
-			return nil
-		}
-
-		param := r.PathValue("routeId")
-		routeId, err := strconv.ParseInt(param, 10, 64)
-		if err != nil {
-			return err
-		}
-
-		body, err := handler.Decode[validations.RouteValidator](r)
-		if err != nil {
-			if validationErrors := decodeValidationError(err); validationErrors != nil {
-				return buildValidationErrors(w, validationErrors)
-			}
-			return err
-		}
-
-		route, err := s.service.PatchUserRoute(r.Context(), authUser, routeId, &body)
-		if err != nil && route == nil {
-			if route == nil {
-				w.WriteHeader(http.StatusNotFound)
-				return nil
-			}
-			return err
-		}
-
-		if err := handler.Encode(*dto.RouteToDTO(route), http.StatusOK, w); err != nil {
-			return err
-		}
-
-		return nil
-	})
-}
-
-// DeleteUserRoute godoc
-// @Summary      Supprimer une route utilisateur
-// @Description  Supprime une route appartenant à l'utilisateur authentifié.
-// @Tags         Routes
-// @Accept       json
-// @Produce      json
-// @Security 	 BearerAuth
-// @Param        routeId path int true "Identifiant de la route à supprimer"
-// @Success      204 {string} string "Route supprimée avec succès"
-// @Failure      401 {object} ErrorResponse "Non authentifié"
-// @Failure      500 {object} ErrorResponse "Erreur interne du serveur"
-// @Router       /user/me/routes/{routeId} [delete]
-func (s *Server) DeleteUserRoute() http.HandlerFunc {
-	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
-		authUser, ok := r.Context().Value("user").(*models.User)
-		if !ok {
-			w.WriteHeader(http.StatusUnauthorized)
-			return nil
-		}
-
-		param := r.PathValue("routeId")
-		routeId, err := strconv.ParseInt(param, 10, 64)
-		if err != nil {
-			return err
-		}
-
-		err = s.service.DeleteRoute(r.Context(), routeId, authUser)
-		if err != nil {
-			return err
-		}
-
-		w.WriteHeader(http.StatusNoContent)
-		return nil
-	})
 }

@@ -2,12 +2,8 @@ package services
 
 import (
 	"context"
-	"crypto/rand"
-	"database/sql"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 	"log/slog"
 	"net/http"
@@ -38,29 +34,21 @@ func NewService(log *slog.Logger, config *config.Config, users *repository.Users
 	}
 }
 
-type AuthError struct {
-	Message string
-	Code    int
+type ErrorWithCode struct {
+	Message string `json:"error"`
+	Code    int    `json:"-"`
 }
 
-func (e AuthError) Error() string {
+func (e ErrorWithCode) Error() string {
 	return e.Message
 }
 
-type UpdateError struct {
-	Message string
-}
-
-func (e UpdateError) Error() string {
-	return e.Message
-}
-
-type DeleteError struct {
-	Message string
-}
-
-func (e DeleteError) Error() string {
-	return e.Message
+func DecodeErrorWithCode(err error) *ErrorWithCode {
+	var ewc *ErrorWithCode
+	if errors.As(err, &ewc) {
+		return ewc
+	}
+	return nil
 }
 
 func (s *Service) GetAllUsers(ctx context.Context) ([]models.User, error) {
@@ -151,7 +139,7 @@ func (s *Service) doCreateUser(ctx context.Context, partialUser *PartialCreateUs
 	}
 
 	if exists != nil {
-		return nil, &AuthError{
+		return nil, &ErrorWithCode{
 			Message: "User with this email already exists",
 			Code:    http.StatusConflict,
 		}
@@ -164,7 +152,7 @@ func (s *Service) doCreateUser(ctx context.Context, partialUser *PartialCreateUs
 	}
 
 	if exists != nil {
-		return nil, &AuthError{
+		return nil, &ErrorWithCode{
 			Message: fmt.Sprintf("User with handle %q already exists", toInsertUser.Handle),
 			Code:    http.StatusConflict,
 		}
@@ -177,7 +165,7 @@ func (s *Service) doCreateUser(ctx context.Context, partialUser *PartialCreateUs
 
 	// Retrieve user with auto associated ID by postgres
 	if &toInsertUser.ID == nil {
-		return nil, &AuthError{
+		return nil, &ErrorWithCode{
 			Message: "Cannot retrieve user's ID",
 			Code:    http.StatusInternalServerError,
 		}
@@ -278,8 +266,7 @@ func (s *Service) doPatchUser(ctx context.Context, id int64, partialUser *Partia
 
 	err := s.users.Update(userToPatch, ctx)
 	if err != nil {
-		s.log.Error("Error occurred while updating user", "details", err)
-		return nil, &UpdateError{Message: "Error occurred while updating user"}
+		return nil, err
 	}
 
 	user, err := s.users.FindByID(ctx, id)
@@ -287,45 +274,6 @@ func (s *Service) doPatchUser(ctx context.Context, id int64, partialUser *Partia
 		return nil, err
 	}
 	return user, err
-}
-
-var wrongCredentialsError = &AuthError{
-	Message: "Wrong credentials",
-	Code:    http.StatusUnauthorized,
-}
-
-func (s *Service) Login(ctx context.Context, email, handle *string, password string) (*models.User, error) {
-
-	var user *models.User
-	var err error
-	if email != nil {
-		user, err = s.users.FindByEmail(ctx, *email)
-	} else if handle != nil {
-		user, err = s.users.FindByHandle(ctx, *handle)
-	} else {
-		return nil, &AuthError{
-			Message: "email or handle is missing",
-			Code:    http.StatusBadRequest,
-		}
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	if user == nil {
-		return nil, wrongCredentialsError
-	}
-
-	if user.HashPassword == nil {
-		return nil, wrongCredentialsError
-	}
-
-	if err := bcrypt.CompareHashAndPassword([]byte(*user.HashPassword), []byte(password)); err != nil {
-		return nil, wrongCredentialsError
-	}
-
-	return user, nil
 }
 
 type DeleteUser struct {
@@ -338,239 +286,13 @@ func (s *Service) DeleteUser(ctx context.Context, id int64) error {
 	}
 
 	if user == nil {
-		return &DeleteError{Message: "User not found"}
+		return &ErrorWithCode{
+			Message: "User not found",
+			Code:    http.StatusNotFound,
+		}
 	}
 
 	err = s.users.Delete(ctx, id)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *Service) Authenticate(ctx context.Context, user *models.User, ip string) (*string, *string, error) {
-	accessToken, err := s.generateAccessToken(user)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	token, err := s.tokens.Get(ctx, user)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, nil, err
-	}
-
-	if token != nil {
-		return accessToken, &token.Token, nil
-	}
-
-	refreshToken, err := s.generateRefreshToken(64)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	err = s.tokens.Delete(ctx, user)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	savedToken := &models.Token{
-		UserID:    user.ID,
-		IP:        ip,
-		Token:     *refreshToken,
-		CreatedAt: time.Now(),
-		ExpiresAt: time.Now().Add(24 * 365 * time.Hour),
-	}
-	err = s.tokens.Insert(ctx, savedToken)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return accessToken, refreshToken, nil
-}
-
-func (s *Service) generateAccessToken(user *models.User) (*string, error) {
-	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"userId": user.ID,
-		"role":   user.Role.Name,
-		"iat":    time.Now().Unix(),
-		"exp":    time.Now().Add(24 * time.Hour).Unix(),
-	})
-
-	token, err := claims.SignedString([]byte(s.config.JwtSecret))
-	if err != nil {
-		return nil, err
-	}
-
-	return &token, nil
-}
-
-func (s *Service) generateRefreshToken(length int) (*string, error) {
-	bytes := make([]byte, length/2)
-	if _, err := rand.Read(bytes); err != nil {
-		return nil, err
-	}
-	token := hex.EncodeToString(bytes)
-	return &token, nil
-}
-
-func (s *Service) hashPassword(password string) (*string, error) {
-	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, err
-	}
-	hashStr := string(hashed)
-	return &hashStr, nil
-}
-
-var invalidRefreshTokenError = &AuthError{
-	Message: "Invalid token",
-	Code:    403,
-}
-
-func (s *Service) RefreshToken(ctx context.Context, user *models.User, refreshToken string) (*string, error) {
-	err := s.checkAuthUserRefreshToken(ctx, user, refreshToken)
-	if err != nil {
-		return nil, err
-	}
-
-	accessToken, err := s.generateAccessToken(user)
-	if err != nil {
-		return nil, err
-	}
-
-	return accessToken, nil
-}
-
-func (s *Service) Logout(ctx context.Context, user *models.User, refreshToken string) error {
-	err := s.checkAuthUserRefreshToken(ctx, user, refreshToken)
-	if err != nil {
-		return err
-	}
-
-	err = s.tokens.Delete(ctx, user)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *Service) checkAuthUserRefreshToken(ctx context.Context, user *models.User, refreshToken string) error {
-	token, err := s.tokens.Get(ctx, user)
-	if err != nil {
-		return err
-	}
-
-	if token == nil {
-		return invalidRefreshTokenError
-	}
-
-	if token.Token != refreshToken {
-		return invalidRefreshTokenError
-	}
-
-	return nil
-}
-
-func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool {
-	token, err := s.tokens.Get(ctx, user)
-	if err != nil {
-		return false
-	}
-
-	if token == nil {
-		return false
-	}
-
-	if token.ExpiresAt.Before(time.Now()) {
-		return false
-	}
-
-	return true
-}
-
-func (s *Service) GetUserRoutes(ctx context.Context, user *models.User) ([]models.Route, error) {
-	routes, err := s.routes.GetAllOfUser(ctx, user)
-	if err != nil {
-		return nil, err
-	}
-	return routes, nil
-}
-
-func (s *Service) GetUserRouteById(ctx context.Context, userId, routeId int64) (*models.Route, error) {
-	route, err := s.routes.GetRouteUserById(ctx, userId, routeId)
-	if err != nil {
-		return nil, err
-	}
-
-	if route == nil {
-		return nil, nil
-	}
-
-	return route, nil
-}
-
-func (s *Service) CreateRouteForUser(ctx context.Context, user *models.User, route *validations.RouteValidator) (*models.Route, error) {
-
-	routeToInsert := mapRoute(route)
-	routeToInsert.UserID = user.ID
-	routeToInsert.CreatedAt = time.Now()
-	routeToInsert.UpdatedAt = time.Now()
-
-	err := s.routes.InsertRoute(ctx, routeToInsert)
-	if err != nil {
-		return nil, err
-	}
-
-	if &routeToInsert.ID == nil {
-		return nil, &AuthError{
-			Message: "Cannot retrieve inserted route",
-			Code:    400,
-		}
-	}
-
-	return routeToInsert, nil
-}
-
-func (s *Service) PatchUserRoute(ctx context.Context, user *models.User, routeID int64, route *validations.RouteValidator) (*models.Route, error) {
-	routeToUpdate := mapRoute(route)
-	routeToUpdate.ID = routeID
-	routeToUpdate.UserID = user.ID
-	routeToUpdate.UpdatedAt = time.Now()
-
-	exists, err := s.routes.GetRouteUserById(ctx, user.ID, routeID)
-	if err != nil {
-		return nil, err
-	}
-	if exists == nil {
-		return nil, nil
-	}
-
-	err = s.routes.UpdateRoute(ctx, routeToUpdate)
-	if err != nil {
-		return nil, err
-	}
-
-	return routeToUpdate, nil
-}
-
-func mapRoute(route *validations.RouteValidator) *models.Route {
-	points := make([]models.Point, len(route.Route))
-	for i, point := range route.Route {
-		points[i] = models.Point{
-			Latitude:  point.Latitude,
-			Longitude: point.Longitude,
-		}
-	}
-
-	return &models.Route{
-		Name:  &route.Name,
-		Route: points,
-	}
-}
-
-func (s *Service) DeleteRoute(ctx context.Context, routeID int64, user *models.User) error {
-	err := s.routes.DeleteRoute(ctx, routeID, user.ID)
 	if err != nil {
 		return err
 	}
