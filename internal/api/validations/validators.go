@@ -69,6 +69,19 @@ type LoginValidator struct {
 	Password string  `json:"password" validate:"required,min=8"`
 }
 
+type UpdatePasswordValidator struct {
+	Old *string `json:"old" validate:"required,min=8"`
+	New *string `json:"new" validate:"required,min=8"`
+}
+
+func (u UpdatePasswordValidator) Validate() error {
+	validate := validator.New()
+	if err := validate.Struct(u); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c LoginValidator) Validate() error {
 	validate := validator.New()
 	validate.RegisterStructValidation(LoginStructValidation, LoginValidator{})

@@ -45,7 +45,7 @@ func (s *Service) Login(ctx context.Context, email, handle *string, password str
 		return nil, wrongCredentialsError
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(*user.HashPassword), []byte(password)); err != nil {
+	if err := s.checkPassword(password, user); err != nil {
 		return nil, wrongCredentialsError
 	}
 
@@ -151,6 +151,10 @@ func (s *Service) hashPassword(password string) (*string, error) {
 	}
 	hashStr := string(hashed)
 	return &hashStr, nil
+}
+
+func (s *Service) checkPassword(password string, user *models.User) error {
+	return bcrypt.CompareHashAndPassword([]byte(*user.HashPassword), []byte(password))
 }
 
 var invalidRefreshTokenError = &ErrorWithCode{

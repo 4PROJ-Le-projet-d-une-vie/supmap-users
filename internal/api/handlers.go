@@ -17,6 +17,13 @@ type InternalErrorResponse struct {
 	Message string `json:"message"`
 }
 
+type UpdateUserSimpleBody struct {
+	Email          *string `json:"email" validate:"omitempty,email"`
+	Handle         *string `json:"handle" validate:"omitempty,min=3,startsnotwith=@"`
+	Password       *string `json:"password" validate:"omitempty,min=8"`
+	ProfilePicture *string `json:"profile_picture" validate:"omitempty,url"`
+}
+
 type TokenResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token,omitempty"`
@@ -308,7 +315,7 @@ func (s *Server) Logout() http.HandlerFunc {
 // @Security BearerAuth
 // @Accept json
 // @Produce json
-// @Param payload body validations.UpdateUserValidator true "Données à mettre à jour"
+// @Param payload body api.UpdateUserSimpleBody true "Données à mettre à jour"
 // @Success 200 {object} api.UserWithTokenResponse
 // @Failure 400 {object} validations.ValidationError "Erreur de validation"
 // @Failure 401 {object} services.ErrorWithCode "Non authentifié"
@@ -356,7 +363,7 @@ func (s *Server) PatchMe() http.HandlerFunc {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID de l'utilisateur à mettre à jour"
-// @Param payload body validations.UpdateUserValidator true "Données à mettre à jour"
+// @Param payload body api.UpdateUserSimpleBody true "Données à mettre à jour"
 // @Success 200 {object} dto.UserDTO
 // @Failure 400 {object} validations.ValidationError "Erreur de validation"
 // @Failure 401 {object} services.ErrorWithCode "Non authentifié"
@@ -371,13 +378,65 @@ func (s *Server) PatchUser() http.HandlerFunc {
 			return err
 		}
 
-		body, err := handler.Decode[validations.UpdateUserValidator](r)
+		body, err := handler.Decode[validations.AdminUpdateUserValidator](r)
 		if err != nil {
 			return buildValidationErrors(err, w)
 		}
 
-		user, err := s.service.PatchUser(r.Context(), id, body)
+		user, err := s.service.PatchUserForAdmin(r.Context(), id, &body)
 		if err != nil {
+			return err
+		}
+
+		accessToken, refreshToken, err := s.service.Authenticate(r.Context(), user)
+		if err != nil {
+			return err
+		}
+
+		userWithTokenResponse := UserWithTokenResponse{
+			User: dto.UserToDTO(user),
+			Token: &TokenResponse{
+				AccessToken:  *accessToken,
+				RefreshToken: *refreshToken,
+			},
+		}
+
+		return encode(userWithTokenResponse, http.StatusOK, w)
+	})
+}
+
+// UpdatePassword godoc
+// @Summary Met à jour le mot de passe de l'utilisateur connecté
+// @Description Permet à un utilisateur authentifié de modifier son mot de passe actuel.
+// @Description L'ancien mot de passe est vérifié avant toute mise à jour. Si celui-ci est incorrect, une erreur 403 est retournée.
+// @Tags Utilisateurs
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param payload body validations.UpdatePasswordValidator true "Ancien et nouveau mot de passe"
+// @Success 200 {object} api.UserWithTokenResponse
+// @Failure 400 {object} validations.ValidationError "Erreur de validation"
+// @Failure 401 {object} services.ErrorWithCode "Non authentifié"
+// @Failure 403 {object} services.ErrorWithCode "Ancien mot de passe incorrect"
+// @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
+// @Router /user/me/update-password [patch]
+func (s *Server) UpdatePassword() http.HandlerFunc {
+	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
+		authUser, ok := r.Context().Value("user").(*models.User)
+		if !ok {
+			return encodeNil(http.StatusUnauthorized, w)
+		}
+
+		body, err := handler.Decode[validations.UpdatePasswordValidator](r)
+		if err != nil {
+			return buildValidationErrors(err, w)
+		}
+
+		user, err := s.service.UpdatePassword(r.Context(), authUser, body)
+		if err != nil {
+			if ewc := services.DecodeErrorWithCode(err); ewc != nil {
+				return encode(ewc, ewc.Code, w)
+			}
 			return err
 		}
 

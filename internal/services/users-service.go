@@ -202,7 +202,6 @@ func (s *Service) PatchUser(ctx context.Context, id int64, body validations.Upda
 		Email:          body.Email,
 		Handle:         handle,
 		ProfilePicture: body.ProfilePicture,
-		Password:       body.Password,
 	}
 
 	user, err := s.doPatchUser(ctx, id, partialUser)
@@ -212,8 +211,7 @@ func (s *Service) PatchUser(ctx context.Context, id int64, body validations.Upda
 	return user, nil
 }
 
-func (s *Service) PatchUserForAdmin(ctx context.Context, id int64, body validations.AdminUpdateUserValidator) (*models.User, error) {
-
+func (s *Service) PatchUserForAdmin(ctx context.Context, id int64, body *validations.AdminUpdateUserValidator) (*models.User, error) {
 	var handle *string
 	if body.Handle != nil {
 		h := "@" + *body.Handle
@@ -241,6 +239,26 @@ func (s *Service) PatchUserForAdmin(ctx context.Context, id int64, body validati
 	if err != nil {
 		return nil, err
 	}
+	return user, nil
+}
+
+func (s *Service) UpdatePassword(ctx context.Context, user *models.User, body validations.UpdatePasswordValidator) (*models.User, error) {
+	if err := s.checkPassword(*body.Old, user); err != nil {
+		return nil, &ErrorWithCode{
+			Message: "Wrong password",
+			Code:    403,
+		}
+	}
+
+	partialUser := &PartialPatchUser{
+		Password: body.New,
+	}
+
+	user, err := s.doPatchUser(ctx, user.ID, partialUser)
+	if err != nil {
+		return nil, err
+	}
+
 	return user, nil
 }
 
