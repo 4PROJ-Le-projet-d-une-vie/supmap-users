@@ -66,7 +66,7 @@ func (s *Service) RefreshToken(ctx context.Context, user *models.User, refreshTo
 	return accessToken, nil
 }
 
-func (s *Service) Authenticate(ctx context.Context, user *models.User, ip string) (*string, *string, error) {
+func (s *Service) Authenticate(ctx context.Context, user *models.User) (*string, *string, error) {
 	accessToken, err := s.generateAccessToken(user)
 	if err != nil {
 		return nil, nil, err
@@ -93,7 +93,6 @@ func (s *Service) Authenticate(ctx context.Context, user *models.User, ip string
 
 	savedToken := &models.Token{
 		UserID:    user.ID,
-		IP:        ip,
 		Token:     *refreshToken,
 		CreatedAt: time.Now(),
 		ExpiresAt: time.Now().Add(24 * 365 * time.Hour),

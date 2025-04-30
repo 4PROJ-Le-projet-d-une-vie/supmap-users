@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"github.com/go-playground/validator/v10"
 	"github.com/matheodrd/httphelper/handler"
-	"net"
 	"net/http"
 	"strconv"
-	"strings"
 	"supmap-users/internal/api/validations"
 	"supmap-users/internal/models"
 	"supmap-users/internal/models/dto"
@@ -131,7 +129,7 @@ func (s *Server) Login() http.HandlerFunc {
 			return err
 		}
 
-		accessToken, refreshToken, err := s.service.Authenticate(r.Context(), user, getIP(r))
+		accessToken, refreshToken, err := s.service.Authenticate(r.Context(), user)
 		if err != nil {
 			return err
 		}
@@ -178,7 +176,7 @@ func (s *Server) Register() http.HandlerFunc {
 			}
 		}
 
-		accessToken, refreshToken, err := s.service.Authenticate(r.Context(), user, getIP(r))
+		accessToken, refreshToken, err := s.service.Authenticate(r.Context(), user)
 		if err != nil {
 			return err
 		}
@@ -334,7 +332,7 @@ func (s *Server) PatchMe() http.HandlerFunc {
 			return err
 		}
 
-		accessToken, refreshToken, err := s.service.Authenticate(r.Context(), user, getIP(r))
+		accessToken, refreshToken, err := s.service.Authenticate(r.Context(), user)
 		if err != nil {
 			return err
 		}
@@ -652,20 +650,4 @@ func buildValidationErrors(err error, w http.ResponseWriter) error {
 
 	validationErrorResponse := validations.ValidationError{Message: "Validation Error", Details: errs}
 	return encode(validationErrorResponse, http.StatusBadRequest, w)
-}
-
-func getIP(r *http.Request) string {
-	ip := r.Header.Get("X-Forwarded-For")
-	if ip != "" {
-		parts := strings.Split(ip, ",")
-		if len(parts) > 0 {
-			return parts[0]
-		}
-	}
-
-	ip, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return ip
 }
