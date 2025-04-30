@@ -102,10 +102,24 @@ func (u *Users) Update(user *models.User, ctx context.Context) error {
 		Where("id = ?", user.ID).
 		OmitZero().
 		Exec(ctx)
+
 	if err != nil {
 		return err
 	}
 
+	return nil
+}
+
+func (u *Users) UpdateProfilePicture(user *models.User, ctx context.Context) error {
+	_, err := u.bun.NewUpdate().
+		Model(user).
+		Where("id = ?", user.ID).
+		Set("profile_picture = ?", user.ProfilePicture).
+		Exec(ctx)
+
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

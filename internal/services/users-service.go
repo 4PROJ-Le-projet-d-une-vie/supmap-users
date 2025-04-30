@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"supmap-users/internal/api/validations"
 	"supmap-users/internal/config"
+	"supmap-users/internal/helpers"
 	"supmap-users/internal/models"
 	"supmap-users/internal/repository"
 	"time"
@@ -180,10 +181,11 @@ func (s *Service) doCreateUser(ctx context.Context, partialUser *PartialCreateUs
 }
 
 type PartialPatchUser struct {
-	Email    *string
-	Handle   *string
-	Password *string
-	RoleID   *int64
+	Email          *string
+	Handle         *string
+	ProfilePicture helpers.NullString
+	Password       *string
+	RoleID         *int64
 }
 
 func (s *Service) PatchUser(ctx context.Context, id int64, body validations.UpdateUserValidator) (*models.User, error) {
@@ -194,9 +196,10 @@ func (s *Service) PatchUser(ctx context.Context, id int64, body validations.Upda
 	}
 
 	partialUser := &PartialPatchUser{
-		Email:    body.Email,
-		Handle:   handle,
-		Password: body.Password,
+		Email:          body.Email,
+		Handle:         handle,
+		ProfilePicture: body.ProfilePicture,
+		Password:       body.Password,
 	}
 
 	user, err := s.doPatchUser(ctx, id, partialUser)
@@ -224,10 +227,11 @@ func (s *Service) PatchUserForAdmin(ctx context.Context, id int64, body validati
 	}
 
 	partialUser := &PartialPatchUser{
-		Email:    body.Email,
-		Handle:   handle,
-		Password: body.Password,
-		RoleID:   roleId,
+		Email:          body.Email,
+		Handle:         handle,
+		ProfilePicture: body.ProfilePicture,
+		Password:       body.Password,
+		RoleID:         roleId,
 	}
 
 	user, err := s.doPatchUser(ctx, id, partialUser)
@@ -262,6 +266,18 @@ func (s *Service) doPatchUser(ctx context.Context, id int64, partialUser *Partia
 
 	if partialUser.RoleID != nil {
 		userToPatch.RoleID = *partialUser.RoleID
+	}
+
+	if partialUser.ProfilePicture.Set {
+		if partialUser.ProfilePicture.Value != nil && *partialUser.ProfilePicture.Value != "" {
+			userToPatch.ProfilePicture = partialUser.ProfilePicture.Value
+		} else {
+			userToPatch.ProfilePicture = nil
+		}
+
+		if err := s.users.UpdateProfilePicture(userToPatch, ctx); err != nil {
+			return nil, err
+		}
 	}
 
 	err := s.users.Update(userToPatch, ctx)

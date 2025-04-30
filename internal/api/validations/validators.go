@@ -2,6 +2,7 @@ package validations
 
 import (
 	"github.com/go-playground/validator/v10"
+	"supmap-users/internal/helpers"
 	"supmap-users/internal/models"
 )
 
@@ -42,9 +43,10 @@ func (u AdminCreateUserValidator) Validate() error {
 }
 
 type UpdateUserValidator struct {
-	Email    *string `json:"email" validate:"omitempty,email"`
-	Handle   *string `json:"handle" validate:"omitempty,min=3,startsnotwith=@"`
-	Password *string `json:"password" validate:"omitempty,min=8"`
+	Email          *string            `json:"email" validate:"omitempty,email"`
+	Handle         *string            `json:"handle" validate:"omitempty,min=3,startsnotwith=@"`
+	Password       *string            `json:"password" validate:"omitempty,min=8"`
+	ProfilePicture helpers.NullString `json:"profile_picture" validate:"omitempty,url"`
 }
 
 func (u UpdateUserValidator) Validate() error {
