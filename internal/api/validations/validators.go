@@ -16,9 +16,10 @@ func (e ValidationError) Error() string {
 }
 
 type CreateUserValidator struct {
-	Email    string `json:"email" validate:"required,email"`
-	Handle   string `json:"handle" validate:"required,lowercase,min=3,startsnotwith=@"`
-	Password string `json:"password" validate:"required,min=8"`
+	Email          string  `json:"email" validate:"required,email"`
+	Handle         string  `json:"handle" validate:"required,lowercase,min=3,startsnotwith=@"`
+	Password       string  `json:"password" validate:"required,min=8"`
+	ProfilePicture *string `json:"profile_picture" validate:"omitempty,url"`
 }
 
 func (u CreateUserValidator) Validate() error {

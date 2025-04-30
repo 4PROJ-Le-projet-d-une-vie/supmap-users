@@ -71,10 +71,11 @@ func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, erro
 }
 
 type PartialCreateUser struct {
-	Email    string
-	Handle   string
-	Password string
-	RoleID   int64
+	Email          string
+	Handle         string
+	ProfilePicture *string
+	Password       string
+	RoleID         int64
 }
 
 func (s *Service) CreateUser(ctx context.Context, body validations.CreateUserValidator) (*models.User, error) {
@@ -85,10 +86,11 @@ func (s *Service) CreateUser(ctx context.Context, body validations.CreateUserVal
 	}
 
 	toInsertUser := &PartialCreateUser{
-		Email:    body.Email,
-		Handle:   "@" + body.Handle,
-		Password: body.Password,
-		RoleID:   role.ID,
+		Email:          body.Email,
+		Handle:         "@" + body.Handle,
+		ProfilePicture: body.ProfilePicture,
+		Password:       body.Password,
+		RoleID:         role.ID,
 	}
 
 	user, err := s.doCreateUser(ctx, toInsertUser)
@@ -127,10 +129,11 @@ func (s *Service) doCreateUser(ctx context.Context, partialUser *PartialCreateUs
 	hashStr := string(hashed)
 
 	toInsertUser := &models.User{
-		Email:        partialUser.Email,
-		Handle:       partialUser.Handle,
-		HashPassword: &hashStr,
-		RoleID:       partialUser.RoleID,
+		Email:          partialUser.Email,
+		Handle:         partialUser.Handle,
+		ProfilePicture: partialUser.ProfilePicture,
+		HashPassword:   &hashStr,
+		RoleID:         partialUser.RoleID,
 	}
 
 	// Email check
