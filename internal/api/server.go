@@ -26,6 +26,10 @@ func NewServer(config *config.Config, log *slog.Logger, service *services.Servic
 func (s *Server) Start() error {
 	mux := http.NewServeMux()
 
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
 	mux.Handle("/swagger/", httpSwagger.WrapHandler)
 
 	mux.Handle("GET /user/all", s.AuthMiddleware()(s.AdminMiddleware()(s.GetUsers())))
