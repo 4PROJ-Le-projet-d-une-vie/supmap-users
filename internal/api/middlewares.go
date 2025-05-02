@@ -14,6 +14,7 @@ type AuthError struct {
 	Error string `json:"error"`
 }
 
+var missingHeader = &AuthError{Error: "Authorization Header is missing"}
 var sessionExpired = &AuthError{Error: "session is expired"}
 var invalidToken = &AuthError{Error: "invalid token"}
 var invalidUser = &AuthError{Error: "invalid user"}
@@ -23,14 +24,16 @@ func (s *Server) AuthMiddleware() func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
-				http.Error(w, "Missing auth header", http.StatusUnauthorized)
+				if err := handler.Encode(missingHeader, http.StatusUnauthorized, w); err != nil {
+					s.log.Error("Error encoding response", err)
+					w.WriteHeader(http.StatusInternalServerError)
+				}
 				return
 			}
 
 			token := strings.TrimPrefix(authHeader, "Bearer ")
 			userID, err := decodeJWT(token, s.Config.JwtSecret)
 			if err != nil {
-				fmt.Println(err)
 				if err := handler.Encode(invalidToken, http.StatusUnauthorized, w); err != nil {
 					s.log.Error("Error encoding response", err)
 					w.WriteHeader(http.StatusInternalServerError)
