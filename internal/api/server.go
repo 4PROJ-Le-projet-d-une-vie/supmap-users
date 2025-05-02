@@ -57,6 +57,7 @@ func (s *Server) Start() error {
 	//  server network and doesn't require securities
 	mux.Handle("GET /internal/user/all", s.GetUsers())
 	mux.Handle("GET /internal/user/{id}", s.GetUserById())
+	mux.Handle("GET /internal/user/check-auth", s.AuthMiddleware()(s.GetMe()))
 
 	server := &http.Server{
 		Addr:    ":" + s.Config.PORT,
