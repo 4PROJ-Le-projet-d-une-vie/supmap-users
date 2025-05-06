@@ -15,7 +15,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o supmap-users cmd/api/main.go
 
 # Build final image
 FROM golang:1.24-alpine
-RUN apk --no-cache add ca-certificates
+RUN apk --no-cache add curl ca-certificates
 
 WORKDIR /app
 COPY --from=builder /app/supmap-users .
