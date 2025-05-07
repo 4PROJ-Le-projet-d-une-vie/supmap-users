@@ -236,27 +236,22 @@ func (s *Server) CreateUser() http.HandlerFunc {
 // @Summary Rafraîchit le token d'accès de l'utilisateur
 // @Description Permet d'obtenir un nouveau token d'accès à partir d'un refresh token valide.
 // @Tags Authentification
-// @Security BearerAuth
 // @Accept json
 // @Produce json
 // @Param data body validations.RefreshValidator true "Refresh Token"
 // @Success 200 {object} api.TokenResponse
-// @Failure 400 {object} services.ErrorWithCode "Erreur de validation ou refresh token invalide"
+// @Failure 400 {object} services.ErrorWithCode "Erreur de validation"
+// @Failure 403 {object} services.ErrorWithCode "Refresh token invalide"
 // @Failure 401 {object} services.ErrorWithCode "Non authentifié"
 // @Router /refresh [post]
 func (s *Server) Refresh() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
-		authUser, ok := r.Context().Value("user").(*models.User)
-		if !ok {
-			return encodeNil(http.StatusUnauthorized, w)
-		}
-
 		body, err := handler.Decode[validations.RefreshValidator](r)
 		if err != nil {
 			return buildValidationErrors(err, w)
 		}
 
-		accessToken, err := s.service.RefreshToken(r.Context(), authUser, body.Token)
+		accessToken, err := s.service.RefreshToken(r.Context(), body.Token)
 		if err != nil {
 			if ewc := services.DecodeErrorWithCode(err); ewc != nil {
 				return encode(ewc, ewc.Code, w)

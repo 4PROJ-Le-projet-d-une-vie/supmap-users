@@ -52,10 +52,14 @@ func (s *Service) Login(ctx context.Context, email, handle *string, password str
 	return user, nil
 }
 
-func (s *Service) RefreshToken(ctx context.Context, user *models.User, refreshToken string) (*string, error) {
-	err := s.checkAuthUserRefreshToken(ctx, user, refreshToken)
+func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*string, error) {
+	user, err := s.tokens.GetUserFromRefreshToken(ctx, refreshToken)
 	if err != nil {
 		return nil, err
+	}
+
+	if user == nil {
+		return nil, invalidRefreshTokenError
 	}
 
 	accessToken, err := s.generateAccessToken(user)

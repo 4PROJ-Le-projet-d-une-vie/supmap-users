@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"github.com/uptrace/bun"
 	"supmap-users/internal/models"
 )
@@ -43,4 +45,23 @@ func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, err
 	}
 
 	return &token, nil
+}
+
+func (t *Tokens) GetUserFromRefreshToken(ctx context.Context, refreshToken string) (*models.User, error) {
+	var token models.Token
+	err := t.bun.NewSelect().
+		Model(&token).
+		Relation("User").
+		Relation("User.Role").
+		Where("token = ?", refreshToken).
+		Limit(1).
+		Scan(ctx)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	return token.User, nil
 }
