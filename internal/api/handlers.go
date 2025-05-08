@@ -42,7 +42,7 @@ type ErrorResponse struct {
 // @Success 200 {array} dto.UserDTO
 // @Failure 401 {object} services.ErrorWithCode "Non authentifié"
 // @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
-// @Router /user/all [get]
+// @Router /user [get]
 func (s *Server) GetUsers() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		users, err := s.service.GetAllUsers(r.Context())
@@ -70,7 +70,7 @@ func (s *Server) GetUsers() http.HandlerFunc {
 // @Failure 401 {object} services.ErrorWithCode "Non authentifié"
 // @Failure 404 {object} services.ErrorWithCode "Utilisateur non trouvé"
 // @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
-// @Router /user/{id} [get]
+// @Router /users/{id} [get]
 func (s *Server) GetUserById() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		id, err := decodeParamAsInt64("id", r)
@@ -100,7 +100,7 @@ func (s *Server) GetUserById() http.HandlerFunc {
 // @Success 200 {object} dto.UserDTO
 // @Failure 401 {object} services.ErrorWithCode "Non authentifié"
 // @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
-// @Router /user/me [get]
+// @Router /users/me [get]
 func (s *Server) GetMe() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		user, ok := r.Context().Value("user").(*models.User)
@@ -212,7 +212,7 @@ func (s *Server) Register() http.HandlerFunc {
 // @Failure 401 {object} services.ErrorWithCode "Non authentifié"
 // @Failure 403 {object} services.ErrorWithCode "Non autorisé (admin requis)"
 // @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
-// @Router /user [post]
+// @Router /users [post]
 func (s *Server) CreateUser() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		body, err := handler.Decode[validations.AdminCreateUserValidator](r)
@@ -316,7 +316,7 @@ func (s *Server) Logout() http.HandlerFunc {
 // @Failure 401 {object} services.ErrorWithCode "Non authentifié"
 // @Failure 409 {object} services.ErrorWithCode "Conflit (par ex. email ou handle déjà utilisé)"
 // @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
-// @Router /user/me [patch]
+// @Router /users/me [patch]
 func (s *Server) PatchMe() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		authUser, ok := r.Context().Value("user").(*models.User)
@@ -365,7 +365,7 @@ func (s *Server) PatchMe() http.HandlerFunc {
 // @Failure 403 {object} services.ErrorWithCode "Accès interdit (l'utilisateur n'est pas administrateur)"
 // @Failure 404 {object} services.ErrorWithCode "Utilisateur non trouvé"
 // @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
-// @Router /user/{id} [patch]
+// @Router /users/{id} [patch]
 func (s *Server) PatchUser() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		id, err := decodeParamAsInt64("id", r)
@@ -414,7 +414,7 @@ func (s *Server) PatchUser() http.HandlerFunc {
 // @Failure 401 {object} services.ErrorWithCode "Non authentifié"
 // @Failure 403 {object} services.ErrorWithCode "Ancien mot de passe incorrect"
 // @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
-// @Router /user/me/update-password [patch]
+// @Router /users/me/update-password [patch]
 func (s *Server) UpdatePassword() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		authUser, ok := r.Context().Value("user").(*models.User)
@@ -452,7 +452,7 @@ func (s *Server) UpdatePassword() http.HandlerFunc {
 // @Failure 401 {object} services.ErrorWithCode "Non authentifié ou non autorisé"
 // @Failure 404 {object} services.ErrorWithCode "Utilisateur non trouvé"
 // @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
-// @Router /user/{id} [delete]
+// @Router /users/{id} [delete]
 func (s *Server) DeleteUser() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		id, err := decodeParamAsInt64("id", r)
@@ -491,7 +491,7 @@ func (s *Server) DeleteUser() http.HandlerFunc {
 // @Success 200 {array} dto.RouteDTO
 // @Failure 401 {object} services.ErrorWithCode
 // @Failure 500 {object} api.InternalErrorResponse
-// @Router /user/me/routes [get]
+// @Router /users/me/routes [get]
 func (s *Server) getUserRoutes() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		authUser, ok := r.Context().Value("user").(*models.User)
@@ -526,7 +526,7 @@ func (s *Server) getUserRoutes() http.HandlerFunc {
 // @Failure 401 {object} services.ErrorWithCode
 // @Failure 404 "Aucune route trouvée pour l'utilisateur authentifié"
 // @Failure 500 {object} api.InternalErrorResponse
-// @Router /user/me/routes/{routeId} [get]
+// @Router /users/me/routes/{routeId} [get]
 func (s *Server) GetUserRoutesById() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		authUser, ok := r.Context().Value("user").(*models.User)
@@ -560,7 +560,7 @@ func (s *Server) GetUserRoutesById() http.HandlerFunc {
 // @Failure      400 {object} services.ErrorWithCode "Requête invalide ou erreur de validation"
 // @Failure      401 {object} services.ErrorWithCode "Non authentifié"
 // @Failure      500 {object} api.InternalErrorResponse "Erreur interne du serveur"
-// @Router       /user/me/routes [post]
+// @Router       /users/me/routes [post]
 func (s *Server) CreateUserRoute() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		authUser, ok := r.Context().Value("user").(*models.User)
@@ -599,7 +599,7 @@ func (s *Server) CreateUserRoute() http.HandlerFunc {
 // @Failure      401 {object} services.ErrorWithCode "Non authentifié"
 // @Failure      404 "Route inexistante"
 // @Failure      500 {object} api.InternalErrorResponse "Erreur interne du serveur"
-// @Router       /user/me/routes/{routeId} [patch]
+// @Router       /users/me/routes/{routeId} [patch]
 func (s *Server) PatchUserRoute() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		authUser, ok := r.Context().Value("user").(*models.User)
@@ -641,7 +641,7 @@ func (s *Server) PatchUserRoute() http.HandlerFunc {
 // @Success      204 {string} string "Route supprimée avec succès"
 // @Failure      401 {object} services.ErrorWithCode "Non authentifié"
 // @Failure      500 {object} api.InternalErrorResponse "Erreur interne du serveur"
-// @Router       /user/me/routes/{routeId} [delete]
+// @Router       /users/me/routes/{routeId} [delete]
 func (s *Server) DeleteUserRoute() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		authUser, ok := r.Context().Value("user").(*models.User)

@@ -32,32 +32,32 @@ func (s *Server) Start() error {
 
 	mux.Handle("/swagger/", httpSwagger.WrapHandler)
 
-	mux.Handle("GET /user/all", s.AuthMiddleware()(s.AdminMiddleware()(s.GetUsers())))
-	mux.Handle("GET /user/{id}", s.AuthMiddleware()(s.AdminMiddleware()(s.GetUserById())))
-	mux.Handle("GET /user/me", s.AuthMiddleware()(s.GetMe()))
+	mux.Handle("GET /users", s.AuthMiddleware()(s.AdminMiddleware()(s.GetUsers())))
+	mux.Handle("GET /users/{id}", s.AuthMiddleware()(s.AdminMiddleware()(s.GetUserById())))
+	mux.Handle("GET /users/me", s.AuthMiddleware()(s.GetMe()))
 
 	mux.Handle("POST /login", s.Login())
 	mux.Handle("POST /register", s.Register())
 	mux.Handle("POST /refresh", s.Refresh())
 	mux.Handle("POST /logout", s.AuthMiddleware()(s.Logout()))
 
-	mux.Handle("POST /user", s.AuthMiddleware()(s.AdminMiddleware()(s.CreateUser())))
-	mux.Handle("PATCH /user/me", s.AuthMiddleware()(s.PatchMe()))
-	mux.Handle("PATCH /user/{id}", s.AuthMiddleware()(s.AdminMiddleware()(s.PatchUser())))
-	mux.Handle("DELETE /user/{id}", s.AuthMiddleware()(s.DeleteUser()))
-	mux.Handle("PATCH /user/me/update-password", s.AuthMiddleware()(s.UpdatePassword()))
+	mux.Handle("POST /users", s.AuthMiddleware()(s.AdminMiddleware()(s.CreateUser())))
+	mux.Handle("PATCH /users/me", s.AuthMiddleware()(s.PatchMe()))
+	mux.Handle("PATCH /users/{id}", s.AuthMiddleware()(s.AdminMiddleware()(s.PatchUser())))
+	mux.Handle("DELETE /users/{id}", s.AuthMiddleware()(s.DeleteUser()))
+	mux.Handle("PATCH /users/me/update-password", s.AuthMiddleware()(s.UpdatePassword()))
 
-	mux.Handle("GET /user/me/routes", s.AuthMiddleware()(s.getUserRoutes()))
-	mux.Handle("GET /user/me/routes/{routeId}", s.AuthMiddleware()(s.GetUserRoutesById()))
-	mux.Handle("POST /user/me/routes", s.AuthMiddleware()(s.CreateUserRoute()))
-	mux.Handle("PATCH /user/me/routes/{routeId}", s.AuthMiddleware()(s.PatchUserRoute()))
-	mux.Handle("DELETE /user/me/routes/{routeId}", s.AuthMiddleware()(s.DeleteUserRoute()))
+	mux.Handle("GET /users/me/routes", s.AuthMiddleware()(s.getUserRoutes()))
+	mux.Handle("GET /users/me/routes/{routeId}", s.AuthMiddleware()(s.GetUserRoutesById()))
+	mux.Handle("POST /users/me/routes", s.AuthMiddleware()(s.CreateUserRoute()))
+	mux.Handle("PATCH /users/me/routes/{routeId}", s.AuthMiddleware()(s.PatchUserRoute()))
+	mux.Handle("DELETE /users/me/routes/{routeId}", s.AuthMiddleware()(s.DeleteUserRoute()))
 
 	// These routes are not exposed outside the LAN
 	//  server network and doesn't require securities
-	mux.Handle("GET /internal/user/all", s.GetUsers())
-	mux.Handle("GET /internal/user/{id}", s.GetUserById())
-	mux.Handle("GET /internal/user/check-auth", s.AuthMiddleware()(s.GetMe()))
+	mux.Handle("GET /internal/users/all", s.GetUsers())
+	mux.Handle("GET /internal/users/{id}", s.GetUserById())
+	mux.Handle("GET /internal/users/check-auth", s.AuthMiddleware()(s.GetMe()))
 
 	server := &http.Server{
 		Addr:    ":" + s.Config.PORT,
