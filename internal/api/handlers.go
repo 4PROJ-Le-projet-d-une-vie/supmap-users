@@ -42,7 +42,7 @@ type ErrorResponse struct {
 // @Success 200 {array} dto.UserDTO
 // @Failure 401 {object} services.ErrorWithCode "Non authentifié"
 // @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
-// @Router /user [get]
+// @Router /users [get]
 func (s *Server) GetUsers() http.HandlerFunc {
 	return handler.Handler(func(w http.ResponseWriter, r *http.Request) error {
 		users, err := s.service.GetAllUsers(r.Context())
