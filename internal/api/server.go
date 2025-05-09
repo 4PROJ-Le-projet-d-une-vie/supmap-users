@@ -30,7 +30,7 @@ func (s *Server) Start() error {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	mux.Handle("/swagger/", httpSwagger.WrapHandler)
+	mux.Handle("/docs/", httpSwagger.WrapHandler)
 
 	mux.Handle("GET /users", s.AuthMiddleware()(s.AdminMiddleware()(s.GetUsers())))
 	mux.Handle("GET /users/{id}", s.AuthMiddleware()(s.AdminMiddleware()(s.GetUserById())))
