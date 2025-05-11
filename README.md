@@ -814,9 +814,6 @@ mux.Handle("PATCH /users/{id}", s.AuthMiddleware()(s.AdminMiddleware()(s.PatchUs
 </details>
 
 <details>
-<summary>PATCH /users/{id}</summary>
-
-<details>
 <summary>DELETE /users/{id}</summary>
 
 ### DELETE /users/{id}
