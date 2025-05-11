@@ -245,8 +245,10 @@ mux.Handle("GET /users", s.AuthMiddleware()(s.AdminMiddleware()(s.GetUsers())))
         ├─> func UserToDTO(user *models.User) *UserDTO                                              # Conversion DTO
         └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
 ```
-
 </details>
+
+<details>
+<summary>GET /users/{id}</summary>
 
 ### GET /users/{id}
 
@@ -296,6 +298,10 @@ mux.Handle("GET /users/{id}", s.AuthMiddleware()(s.AdminMiddleware()(s.GetUserBy
         ├─> func UserToDTO(user *models.User) *UserDTO                                              # Conversion DTO
         └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
 ```
+</details>
+
+<details>
+<summary>GET /users/me</summary>
 
 ### GET /users/me
 
@@ -340,7 +346,10 @@ mux.Handle("GET /users/me", s.AuthMiddleware()(s.GetMe()))
         ├─> func UserToDTO(user *models.User) *UserDTO                                              # Conversion DTO
         └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
 ```
+</details>
 
+<details>
+<summary>POST /login</summary>
 ### POST /login
 
 Cet endpoint permet à un utilisateur de s'authentifier en utilisant soit son email, soit son handle avec son mot de passe. En cas de succès, il reçoit un access token et un refresh token.
@@ -385,6 +394,7 @@ mux.Handle("POST /login", s.Login())
     │   └─> func (t *Tokens) Insert(ctx context.Context, token *models.Token) error                     # Sauvegarde du refresh token
     └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error             # Ecriture de la réponse avec une fonction générique
 ```
+</details>
 
 ### POST /register
 
