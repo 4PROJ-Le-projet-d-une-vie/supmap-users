@@ -81,6 +81,7 @@ supmap-users/
 │   ├── api/
 │   │   ├── handlers.go       # Gestionnaires de requêtes HTTP
 │   │   ├── server.go         # Configuration du serveur HTTP et routes
+│   │   ├── middlewares.go    # Intercepteurs de requête
 │   │   └── validations/       
 │   │       └── ...           # Structures de validation
 │   ├── config/
