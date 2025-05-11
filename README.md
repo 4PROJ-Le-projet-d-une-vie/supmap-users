@@ -34,25 +34,26 @@ graph TD
     DTOs -->|Response| Client
     
     subgraph Services["Services Layer"]
-        Handlers -->|Request / Body validation| Validators[Requests Validators]
-        Validators -->|Business Logic| UserService[Users Service]
-        Validators -->|Auth Logic| AuthService[Authentication Service]
-        Validators -->|Business Logic| RouteService[Routes Service]
-        
+        Handlers -.->|Request / Body validation| Validators[Requests Validators]
+        Validators -.-> Handlers
+        Handlers -->|Business Logic| UserService[Users Service]
+        Handlers -->|Auth Logic| AuthService[Authentication Service]
+        Handlers -->|Business Logic| RouteService[Routes Service]
     end
     
     subgraph Repositories["Repository Layer"]
-        AuthService --> TokensRepo[Tokens Repository]
-        RouteService --> RoutesRepo[Routes Repository]
+        direction LR
         UserService --> UsersRepo[Users Repository]
         UserService --> RolesRepo[Roles Repository]
+        AuthService --> TokensRepo[Tokens Repository]
+        RouteService --> RoutesRepo[Routes Repository]
     end
     
     subgraph Models["Domain Models"]
         UsersRepo --> UserModel[User Model]
+        RolesRepo --> RoleModel[Role Model]
         TokensRepo --> TokenModel[Token Model]
         RoutesRepo --> RouteModel[Route Model]
-        RolesRepo --> RoleModel[Role Model]
     end
     
     subgraph Database
