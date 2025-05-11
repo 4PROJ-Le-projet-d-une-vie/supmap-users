@@ -350,6 +350,7 @@ mux.Handle("GET /users/me", s.AuthMiddleware()(s.GetMe()))
 
 <details>
 <summary>POST /login</summary>
+
 ### POST /login
 
 Cet endpoint permet à un utilisateur de s'authentifier en utilisant soit son email, soit son handle avec son mot de passe. En cas de succès, il reçoit un access token et un refresh token.
@@ -395,6 +396,9 @@ mux.Handle("POST /login", s.Login())
     └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error             # Ecriture de la réponse avec une fonction générique
 ```
 </details>
+
+<details>
+<summary>POST /register</summary>
 
 ### POST /register
 
@@ -459,6 +463,10 @@ mux.Handle("POST /register", s.Register())
     ├─> func UserToDTO(user *models.User) *UserDTO                                                  # Conversion DTO
     └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error         # Ecriture de la réponse avec une fonction générique
 ```
+</details>
+
+<details>
+<summary></summary>
 
 ### POST /refresh
 
@@ -498,6 +506,10 @@ mux.Handle("POST /refresh", s.Refresh())
     ├─> func (s *Service) generateAccessToken(user *models.User)                                # Génération du nouveau token
     └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
 ```
+</details>
+
+<details>
+<summary></summary>
 
 ### POST /logout
 
@@ -536,6 +548,10 @@ mux.Handle("POST /logout", s.AuthMiddleware()(s.Logout()))
         │   └─> func (t *Tokens) Delete(ctx context.Context, user *models.User) error               # Repository - suppression du refresh token
         └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
 ```
+</details>
+
+<details>
+<summary></summary>
 
 ### POST /users
 
@@ -598,6 +614,10 @@ mux.Handle("POST /users", s.AuthMiddleware()(s.AdminMiddleware()(s.CreateUser())
         ├─> func UserToDTO(user *models.User) *UserDTO                                                                  # Conversion DTO
         └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                         # Ecriture de la réponse avec une fonction générique
 ```
+</details>
+
+<details>
+<summary></summary>
 
 ### PATCH /users/me
 
@@ -662,6 +682,10 @@ mux.Handle("PATCH /users/me", s.AuthMiddleware()(s.PatchMe()))
         ├─> func UserToDTO(user *models.User) *UserDTO                                                          # Conversion DTO
         └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                 # Ecriture de la réponse avec une fonction générique
 ```
+</details>
+
+<details>
+<summary></summary>
 
 ### PATCH /users/{id}
 
@@ -733,6 +757,10 @@ mux.Handle("PATCH /users/me", s.AuthMiddleware()(s.PatchMe()))
         ├─> func UserToDTO(user *models.User) *UserDTO                                                          # Conversion DTO
         └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                 # Ecriture de la réponse avec une fonction générique
 ```
+</details>
+
+<details>
+<summary></summary>
 
 ### PATCH /users/{id}
 
@@ -808,6 +836,10 @@ mux.Handle("PATCH /users/{id}", s.AuthMiddleware()(s.AdminMiddleware()(s.PatchUs
         ├─> func UserToDTO(user *models.User) *UserDTO                                                                          # Conversion DTO
         └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                                 # Ecriture de la réponse avec une fonction générique
 ```
+</details>
+
+<details>
+<summary></summary>
 
 ### DELETE /users/{id}
 
@@ -843,6 +875,10 @@ mux.Handle("DELETE /users/{id}", s.AuthMiddleware()(s.DeleteUser()))
             ├─> func (u *Users) FindByID(ctx context.Context, id int64) (*models.User, error)       # Repository - vérifie l'existence de l'utilisateur
             └─> func (u *Users) Delete(ctx context.Context, id int64) error                         # Repository - suppression de l'utilisateur
 ```
+</details>
+
+<details>
+<summary></summary>
 
 ### PATCH /users/me/update-password
 
@@ -899,6 +935,10 @@ mux.Handle("PATCH /users/me/update-password", s.AuthMiddleware()(s.UpdatePasswor
         ├─> func UserToDTO(user *models.User) *UserDTO                                                                          # Conversion DTO
         └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                                 # Ecriture de la réponse avec une fonction générique
 ```
+</details>
+
+<details>
+<summary></summary>
 
 ### GET /users/me/routes
 
@@ -946,6 +986,10 @@ mux.Handle("GET /users/me/routes", s.AuthMiddleware()(s.getUserRoutes()))
         ├─> func RouteToDTO(route *models.Route) *RouteDTO                                          # Conversion DTO
         └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
 ```
+</details>
+
+<details>
+<summary></summary>
 
 ### GET /users/me/routes/{routeId}
 
@@ -980,6 +1024,7 @@ Aucun corps de requête n'est requis pour cette requête.
   "updated_at": "string"
 }
 ```
+
 #### Trace
 
 ```
@@ -994,6 +1039,10 @@ mux.Handle("GET /users/me/routes/{routeId}", s.AuthMiddleware()(s.GetUserRoutesB
         ├─> func RouteToDTO(route *models.Route) *RouteDTO                                          # Conversion DTO
         └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
 ```
+</details>
+
+<details>
+<summary></summary>
 
 ### POST /users/me/routes
 
@@ -1057,6 +1106,10 @@ mux.Handle("POST /users/me/routes", s.AuthMiddleware()(s.CreateUserRoute()))
         ├─> func RouteToDTO(route *models.Route) *RouteDTO                                                                      # Conversion DTO
         └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                                 # Ecriture de la réponse avec une fonction générique
 ```
+</details>
+
+<details>
+<summary></summary>
 
 ### PATCH /users/me/routes/{routeId}
 
@@ -1125,6 +1178,10 @@ mux.Handle("PATCH /users/me/routes/{routeId}", s.AuthMiddleware()(s.PatchUserRou
         ├─> func RouteToDTO(route *models.Route) *RouteDTO                                                                                  # Conversion DTO
         └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                                             # Ecriture de la réponse avec une fonction générique
 ```
+</details>
+
+<details>
+<summary></summary>
 
 ### DELETE /users/me/routes/{routeId}
 
@@ -1160,3 +1217,4 @@ mux.Handle("DELETE /users/me/routes/{routeId}", s.AuthMiddleware()(s.DeleteUserR
         │   └─> func (r *Routes) DeleteRoute(ctx context.Context, routeId, userId int64)            # Repository - suppression de la route
         └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
 ```
+</details>
