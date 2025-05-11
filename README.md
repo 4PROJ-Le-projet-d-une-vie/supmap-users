@@ -191,6 +191,9 @@ Cette API utilise un système d’authentification basé sur JWT (JSON Web Token
 
 Les endpoints ci-dessous sont présentés selon l'ordre dans lequel ils sont définit dans [server.go](internal/api/server.go)
 
+<details>
+<summary>GET /users</summary>
+
 ### GET /users
 
 Cet endpoint perm permet à un utilisateur authentifié en tant qu'administrateur, d'accéder à la liste de tous les utilisateurs existant.
@@ -242,6 +245,8 @@ mux.Handle("GET /users", s.AuthMiddleware()(s.AdminMiddleware()(s.GetUsers())))
         ├─> func UserToDTO(user *models.User) *UserDTO                                              # Conversion DTO
         └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
 ```
+
+</details>
 
 ### GET /users/{id}
 
