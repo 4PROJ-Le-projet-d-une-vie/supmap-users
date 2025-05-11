@@ -41,6 +41,7 @@ type ErrorResponse struct {
 // @Produce json
 // @Success 200 {array} dto.UserDTO
 // @Failure 401 {object} services.ErrorWithCode "Non authentifié"
+// @Failure 403 {object} services.ErrorWithCode "Non autorisé (admin requis)"
 // @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
 // @Router /users [get]
 func (s *Server) GetUsers() http.HandlerFunc {
@@ -68,6 +69,7 @@ func (s *Server) GetUsers() http.HandlerFunc {
 // @Param id path int true "ID de l'utilisateur"
 // @Success 200 {object} dto.UserDTO
 // @Failure 401 {object} services.ErrorWithCode "Non authentifié"
+// @Failure 403 {object} services.ErrorWithCode "Non autorisé (admin requis)"
 // @Failure 404 {object} services.ErrorWithCode "Utilisateur non trouvé"
 // @Failure 500 {object} api.InternalErrorResponse "Erreur interne du serveur"
 // @Router /users/{id} [get]

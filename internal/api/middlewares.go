@@ -93,7 +93,7 @@ func (s *Server) AdminMiddleware() func(http.Handler) http.Handler {
 
 			if user.Role == nil || user.Role.Name != "ROLE_ADMIN" {
 				s.log.Warn("Non admin user tried to access admin route")
-				w.WriteHeader(http.StatusUnauthorized)
+				w.WriteHeader(http.StatusForbidden)
 				return
 			}
 
