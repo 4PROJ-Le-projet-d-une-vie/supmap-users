@@ -466,7 +466,7 @@ mux.Handle("POST /register", s.Register())
 </details>
 
 <details>
-<summary></summary>
+<summary>POST /refresh</summary>
 
 ### POST /refresh
 
@@ -509,7 +509,7 @@ mux.Handle("POST /refresh", s.Refresh())
 </details>
 
 <details>
-<summary></summary>
+<summary>POST /logout</summary>
 
 ### POST /logout
 
@@ -551,7 +551,7 @@ mux.Handle("POST /logout", s.AuthMiddleware()(s.Logout()))
 </details>
 
 <details>
-<summary></summary>
+<summary>POST /users</summary>
 
 ### POST /users
 
@@ -617,7 +617,7 @@ mux.Handle("POST /users", s.AuthMiddleware()(s.AdminMiddleware()(s.CreateUser())
 </details>
 
 <details>
-<summary></summary>
+<summary>PATCH /users/me</summary>
 
 ### PATCH /users/me
 
@@ -685,7 +685,7 @@ mux.Handle("PATCH /users/me", s.AuthMiddleware()(s.PatchMe()))
 </details>
 
 <details>
-<summary></summary>
+<summary>PATCH /users/{id}</summary>
 
 ### PATCH /users/{id}
 
@@ -760,7 +760,7 @@ mux.Handle("PATCH /users/me", s.AuthMiddleware()(s.PatchMe()))
 </details>
 
 <details>
-<summary></summary>
+<summary>PATCH /users/{id}</summary>
 
 ### PATCH /users/{id}
 
@@ -839,7 +839,7 @@ mux.Handle("PATCH /users/{id}", s.AuthMiddleware()(s.AdminMiddleware()(s.PatchUs
 </details>
 
 <details>
-<summary></summary>
+<summary>DELETE /users/{id}</summary>
 
 ### DELETE /users/{id}
 
@@ -878,7 +878,7 @@ mux.Handle("DELETE /users/{id}", s.AuthMiddleware()(s.DeleteUser()))
 </details>
 
 <details>
-<summary></summary>
+<summary>PATCH /users/me/update-password</summary>
 
 ### PATCH /users/me/update-password
 
@@ -938,7 +938,7 @@ mux.Handle("PATCH /users/me/update-password", s.AuthMiddleware()(s.UpdatePasswor
 </details>
 
 <details>
-<summary></summary>
+<summary>GET /users/me/routes</summary>
 
 ### GET /users/me/routes
 
@@ -989,7 +989,7 @@ mux.Handle("GET /users/me/routes", s.AuthMiddleware()(s.getUserRoutes()))
 </details>
 
 <details>
-<summary></summary>
+<summary>GET /users/me/routes/{routeId}</summary>
 
 ### GET /users/me/routes/{routeId}
 
@@ -1042,7 +1042,7 @@ mux.Handle("GET /users/me/routes/{routeId}", s.AuthMiddleware()(s.GetUserRoutesB
 </details>
 
 <details>
-<summary></summary>
+<summary>POST /users/me/routes</summary>
 
 ### POST /users/me/routes
 
@@ -1109,7 +1109,7 @@ mux.Handle("POST /users/me/routes", s.AuthMiddleware()(s.CreateUserRoute()))
 </details>
 
 <details>
-<summary></summary>
+<summary>PATCH /users/me/routes/{routeId}</summary>
 
 ### PATCH /users/me/routes/{routeId}
 
@@ -1181,7 +1181,7 @@ mux.Handle("PATCH /users/me/routes/{routeId}", s.AuthMiddleware()(s.PatchUserRou
 </details>
 
 <details>
-<summary></summary>
+<summary>/users/me/routes/{routeId}</summary>
 
 ### DELETE /users/me/routes/{routeId}
 
