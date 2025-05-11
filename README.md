@@ -193,7 +193,7 @@ Cette API utilise un système d’authentification basé sur JWT (JSON Web Token
 Les migrations permettent de versionner la structure de la base de données et de suivre son évolution au fil du temps.
 Elles garantissent que tous les environnements (développement, production, etc.) partagent le même schéma de base de données.
 
-Ce projet utilise [Goose](https://github.com/pressly/goose) pour gérer les migrations SQL. Les fichiers de migration sont stockés dans le dossier `migrations/changelog/` et sont embarqués dans le binaire grâce à la directive `//go:embed` dans [main.go](migrations/migrate.go).
+Ce projet utilise [Goose](https://github.com/pressly/goose) pour gérer les migrations SQL. Les fichiers de migration sont stockés dans le dossier `migrations/changelog/` et sont embarqués dans le binaire grâce à la directive `//go:embed` dans [migrate.go](migrations/migrate.go).
 
 ### Création d'une migration
 
