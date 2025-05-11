@@ -60,7 +60,7 @@ graph TD
         Models -->|ORM Bun| DB[(PostgreSQL)]
     end
     
-    subgraph Configuration
+    subgraph Business
         Config[Config.go] -->|Environment Variables| Services
         Config -->|Environment Variables| Repositories
     end
