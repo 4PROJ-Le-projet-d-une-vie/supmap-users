@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// GetUserRoutes récupère tous les itinéraires associés à un utilisateur spécifique
 func (s *Service) GetUserRoutes(ctx context.Context, user *models.User) ([]models.Route, error) {
 	routes, err := s.routes.GetAllOfUser(ctx, user)
 	if err != nil {
@@ -16,6 +17,7 @@ func (s *Service) GetUserRoutes(ctx context.Context, user *models.User) ([]model
 	return routes, nil
 }
 
+// GetUserRouteById récupère un itinéraire spécifique par ID pour un utilisateur donné
 func (s *Service) GetUserRouteById(ctx context.Context, userId, routeId int64) (*models.Route, error) {
 	route, err := s.routes.GetRouteUserById(ctx, userId, routeId)
 	if err != nil {
@@ -29,6 +31,7 @@ func (s *Service) GetUserRouteById(ctx context.Context, userId, routeId int64) (
 	return route, nil
 }
 
+// CreateRouteForUser crée un nouvel itinéraire pour un utilisateur spécifique
 func (s *Service) CreateRouteForUser(ctx context.Context, user *models.User, route *validations.RouteValidator) (*models.Route, error) {
 
 	routeToInsert := mapRoute(route)
@@ -51,6 +54,7 @@ func (s *Service) CreateRouteForUser(ctx context.Context, user *models.User, rou
 	return routeToInsert, nil
 }
 
+// PatchUserRoute met à jour un itinéraire existant pour un utilisateur spécifique
 func (s *Service) PatchUserRoute(ctx context.Context, user *models.User, routeID int64, route *validations.RouteValidator) (*models.Route, error) {
 	routeToUpdate := mapRoute(route)
 	routeToUpdate.ID = routeID
@@ -73,6 +77,7 @@ func (s *Service) PatchUserRoute(ctx context.Context, user *models.User, routeID
 	return routeToUpdate, nil
 }
 
+// DeleteRoute supprime un itinéraire pour un utilisateur spécifique
 func (s *Service) DeleteRoute(ctx context.Context, routeID int64, user *models.User) error {
 	exists, err := s.routes.GetRouteUserById(ctx, user.ID, routeID)
 	if err != nil {
@@ -93,6 +98,7 @@ func (s *Service) DeleteRoute(ctx context.Context, routeID int64, user *models.U
 	return nil
 }
 
+// mapRoute convertit un validateur d'itinéraire en modèle d'itinéraire
 func mapRoute(route *validations.RouteValidator) *models.Route {
 	points := make([]models.Point, len(route.Route))
 	for i, point := range route.Route {

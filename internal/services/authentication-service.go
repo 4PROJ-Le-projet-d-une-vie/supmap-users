@@ -18,6 +18,8 @@ var wrongCredentialsError = &ErrorWithCode{
 	Code:    http.StatusUnauthorized,
 }
 
+// Login authentifie un utilisateur en utilisant soit l'email soit le pseudo avec le mot de passe
+// Retourne l'utilisateur authentifié ou une erreur si les identifiants sont invalides
 func (s *Service) Login(ctx context.Context, email, handle *string, password string) (*models.User, error) {
 
 	var user *models.User
@@ -52,6 +54,7 @@ func (s *Service) Login(ctx context.Context, email, handle *string, password str
 	return user, nil
 }
 
+// RefreshToken génère un nouveau jeton d'accès en utilisant un jeton de rafraîchissement valide
 func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*string, error) {
 	user, err := s.tokens.GetUserFromRefreshToken(ctx, refreshToken)
 	if err != nil {
@@ -70,6 +73,8 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*strin
 	return accessToken, nil
 }
 
+// Authenticate génère à la fois un jeton d'accès et un jeton de rafraîchissement pour un utilisateur
+// Retourne accessToken, refreshToken, error
 func (s *Service) Authenticate(ctx context.Context, user *models.User) (*string, *string, error) {
 	accessToken, err := s.generateAccessToken(user)
 	if err != nil {
@@ -109,6 +114,7 @@ func (s *Service) Authenticate(ctx context.Context, user *models.User) (*string,
 	return accessToken, refreshToken, nil
 }
 
+// Logout invalide le jeton de rafraîchissement de l'utilisateur
 func (s *Service) Logout(ctx context.Context, user *models.User, refreshToken string) error {
 	err := s.checkAuthUserRefreshToken(ctx, user, refreshToken)
 	if err != nil {
@@ -123,6 +129,7 @@ func (s *Service) Logout(ctx context.Context, user *models.User, refreshToken st
 	return nil
 }
 
+// IsAuthenticated vérifie si un utilisateur a une session d'authentification valide
 func (s *Service) generateAccessToken(user *models.User) (*string, error) {
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"userId": user.ID,

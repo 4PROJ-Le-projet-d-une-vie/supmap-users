@@ -15,6 +15,7 @@ import (
 	"time"
 )
 
+// Service gère toute la logique métier liée aux utilisateurs
 type Service struct {
 	log    *slog.Logger
 	config *config.Config
@@ -52,6 +53,7 @@ func DecodeErrorWithCode(err error) *ErrorWithCode {
 	return nil
 }
 
+// GetAllUsers récupère tous les utilisateurs de la base de données
 func (s *Service) GetAllUsers(ctx context.Context) ([]models.User, error) {
 	users, err := s.users.FindAll(ctx)
 	if err != nil {
@@ -61,6 +63,7 @@ func (s *Service) GetAllUsers(ctx context.Context) ([]models.User, error) {
 	return users, nil
 }
 
+// GetUserByID récupère un utilisateur spécifique par son ID
 func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error) {
 	user, err := s.users.FindByID(ctx, id)
 	if err != nil {
@@ -78,6 +81,7 @@ type PartialCreateUser struct {
 	RoleID         int64
 }
 
+// CreateUser crée un nouvel utilisateur avec les permissions par défaut
 func (s *Service) CreateUser(ctx context.Context, body validations.CreateUserValidator) (*models.User, error) {
 
 	role, err := s.roles.FindUserRole(ctx)
@@ -100,6 +104,7 @@ func (s *Service) CreateUser(ctx context.Context, body validations.CreateUserVal
 	return user, nil
 }
 
+// CreateUserForAdmin crée un nouvel utilisateur avec un rôle spécifique (réservé aux administrateurs)
 func (s *Service) CreateUserForAdmin(ctx context.Context, body validations.AdminCreateUserValidator) (*models.User, error) {
 	role, err := s.roles.FindRole(ctx, body.Role)
 	if err != nil {
@@ -191,6 +196,7 @@ type PartialPatchUser struct {
 	RoleID         *int64
 }
 
+// PatchUser met à jour les informations d'un utilisateur existant
 func (s *Service) PatchUser(ctx context.Context, id int64, body validations.UpdateUserValidator) (*models.User, error) {
 	var handle *string
 	if body.Handle != nil {
@@ -211,6 +217,7 @@ func (s *Service) PatchUser(ctx context.Context, id int64, body validations.Upda
 	return user, nil
 }
 
+// PatchUserForAdmin met à jour les informations d'un utilisateur existant, y compris son rôle (réservé aux administrateurs)
 func (s *Service) PatchUserForAdmin(ctx context.Context, id int64, body *validations.AdminUpdateUserValidator) (*models.User, error) {
 	var handle *string
 	if body.Handle != nil {
@@ -242,6 +249,7 @@ func (s *Service) PatchUserForAdmin(ctx context.Context, id int64, body *validat
 	return user, nil
 }
 
+// UpdatePassword met à jour le mot de passe d'un utilisateur après vérification de son mot de passe actuel
 func (s *Service) UpdatePassword(ctx context.Context, user *models.User, body validations.UpdatePasswordValidator) (*models.User, error) {
 	if err := s.checkPassword(*body.Old, user); err != nil {
 		return nil, &ErrorWithCode{
@@ -316,6 +324,7 @@ func (s *Service) doPatchUser(ctx context.Context, id int64, partialUser *Partia
 type DeleteUser struct {
 }
 
+// DeleteUser supprime un utilisateur du système
 func (s *Service) DeleteUser(ctx context.Context, id int64) error {
 	user, err := s.users.FindByID(ctx, id)
 	if err != nil {
