@@ -526,3 +526,627 @@ mux.Handle("POST /logout", s.AuthMiddleware()(s.Logout()))
         │   └─> func (t *Tokens) Delete(ctx context.Context, user *models.User) error               # Repository - suppression du refresh token
         └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
 ```
+
+### POST /users
+
+Cet endpoint permet à un administrateur de créer un nouveau compte utilisateur avec un rôle spécifique.
+
+#### Authentification / Autorisations
+
+- L'utilisateur doit être authentifié (sinon code http 401)
+- L'utilisateur doit avoir le role d'administrateur (sinon code http 403)
+
+#### Paramètres / Corps de requête
+
+```json
+{
+  "email": "string",
+  "handle": "string",
+  "password": "string",
+  "role": "string"
+}
+```
+
+Règles de validation :
+
+- email : Requis, doit être un email valide
+- handle : Requis, minimum 3 caractères, ne doit pas commencer par '@' (il sera ajouté automatiquement)
+- password : Requis, minimum 8 caractères
+- role : Requis, doit être un rôle existant dans la base de données ("ROLE_USER" ou "ROLE_ADMIN")
+
+#### Réponse
+
+```json
+{
+  "id": 0,
+  "email": "string",
+  "handle": "string",
+  "auth_provider": "string",
+  "profile_picture": "string",
+  "role": {
+    "id": 0,
+    "name": "string"
+  },
+  "created_at": "string",
+  "updated_at": "string"
+}
+```
+
+#### Trace
+
+```
+mux.Handle("POST /users", s.AuthMiddleware()(s.AdminMiddleware()(s.CreateUser())))
+└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                                           # Authentifie l'utilisateur
+    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)                              # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool                                  # Vérifie que la session de l'utilisateur est valide
+    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)                          # Récupère le refresh_token de l'utilisateur
+    └─> func (s *Server) AdminMiddleware() func(http.Handler) http.Handler                                              # Vérifie que l'utilisateur authentifié soit un administrateur
+        ├─> func (s *Server) CreateUser() http.HandlerFunc                                                              # Handler HTTP
+        │   └─> func (s *Service) CreateUserForAdmin(ctx context.Context, body validations.AdminCreateUserValidator)    # Service
+        │       ├─> func (r *Roles) FindRole(ctx context.Context, role string)                                          # Repository - récupération du rôle spécifié
+        │       └─> func (u *Users) Insert(user *models.User, ctx context.Context) error                                # Repository - insertion du nouvel utilisateur
+        ├─> func UserToDTO(user *models.User) *UserDTO                                                                  # Conversion DTO
+        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                         # Ecriture de la réponse avec une fonction générique
+```
+
+### PATCH /users/me
+
+Cet endpoint permet à un utilisateur authentifié de mettre à jour ses propres informations. Retourne les informations mises à jour ainsi que de nouveaux tokens.
+
+#### Authentification / Autorisations
+
+- L'utilisateur doit être authentifié (sinon code http 401)
+
+#### Paramètres / Corps de requête
+
+```json
+{
+  "email": "string",
+  "handle": "string",
+  "profile_picture": "string"
+}
+```
+
+Règles de validation :
+
+- email : Optionnel, doit être un email valide
+- handle : Optionnel, minimum 3 caractères, ne doit pas commencer par '@' (il sera ajouté automatiquement)
+- profile_picture : Optionnel, doit être une URL valide ou null pour le supprimer
+
+#### Réponse
+
+```json
+{
+  "user": {
+    "id": 0,
+    "email": "string",
+    "handle": "string",
+    "auth_provider": "string",
+    "profile_picture": "string",
+    "role": {
+      "id": 0,
+      "name": "string"
+    },
+    "created_at": "string",
+    "updated_at": "string"
+  },
+  "tokens": {
+    "access_token": "string",
+    "refresh_token": "string"
+  }
+}
+```
+
+#### Trace
+
+```
+mux.Handle("PATCH /users/me", s.AuthMiddleware()(s.PatchMe()))
+└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                                   # Authentifie l'utilisateur
+    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)                      # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool                          # Vérifie que la session de l'utilisateur est valide
+    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)                  # Récupère le refresh_token de l'utilisateur
+    └─> func (s *Server) PatchMe() http.HandlerFunc                                                             # Handler HTTP
+        ├─> func (s *Service) PatchUser(ctx context.Context, id int64, body validations.UpdateUserValidator)    # Service
+        │   └─> func (u *Users) Update(user *models.User, ctx context.Context) error                            # Repository - mise à jour de l'utilisateur
+        ├─> func (s *Service) Authenticate(ctx context.Context, user *models.User)                              # Génération des nouveaux tokens
+        ├─> func UserToDTO(user *models.User) *UserDTO                                                          # Conversion DTO
+        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                 # Ecriture de la réponse avec une fonction générique
+```
+
+### PATCH /users/{id}
+
+Cet endpoint permet à un administrateur de mettre à jour les informations d'un utilisateur spécifique, y compris son rôle.
+
+#### Authentification / Autorisations
+
+- L'utilisateur doit être authentifié (sinon code http 401)
+- L'utilisateur doit avoir le role d'administrateur (sinon code http 403)
+
+#### Paramètres / Corps de requête
+
+| Paramètre | Type  | Description                    |
+|-----------|-------|--------------------------------|
+| id        | int64 | Identifiant de l'utilisateur   |
+
+```json
+{
+  "email": "string",
+  "handle": "string",
+  "password": "string",
+  "profile_picture": "string",
+  "role": "string"
+}
+```
+
+Règles de validation :
+
+- email : Optionnel, doit être un email valide
+- handle : Optionnel, minimum 3 caractères, ne doit pas commencer par '@' (il sera ajouté automatiquement)
+- profile_picture : Optionnel, doit être une URL valide ou null pour le supprimer
+
+#### Réponse
+
+```json
+{
+  "user": {
+    "id": 0,
+    "email": "string",
+    "handle": "string",
+    "auth_provider": "string",
+    "profile_picture": "string",
+    "role": {
+      "id": 0,
+      "name": "string"
+    },
+    "created_at": "string",
+    "updated_at": "string"
+  },
+  "tokens": {
+    "access_token": "string",
+    "refresh_token": "string"
+  }
+}
+```
+
+#### Trace
+
+```
+mux.Handle("PATCH /users/me", s.AuthMiddleware()(s.PatchMe()))
+└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                                   # Authentifie l'utilisateur
+    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)                      # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool                          # Vérifie que la session de l'utilisateur est valide
+    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)                  # Récupère le refresh_token de l'utilisateur
+    └─> func (s *Server) PatchMe() http.HandlerFunc                                                             # Handler HTTP
+        ├─> func (s *Service) PatchUser(ctx context.Context, id int64, body validations.UpdateUserValidator)    # Service
+        │   └─> func (u *Users) Update(user *models.User, ctx context.Context) error                            # Repository - mise à jour de l'utilisateur
+        ├─> func (s *Service) Authenticate(ctx context.Context, user *models.User)                              # Génération des nouveaux tokens
+        ├─> func UserToDTO(user *models.User) *UserDTO                                                          # Conversion DTO
+        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                 # Ecriture de la réponse avec une fonction générique
+```
+
+### PATCH /users/{id}
+
+Cet endpoint permet à un administrateur de modifier les informations d'un utilisateur spécifique, y compris son rôle.
+
+#### Authentification / Autorisations
+
+- L'utilisateur doit être authentifié (sinon code http 401)
+- L'utilisateur doit avoir le role d'administrateur (sinon code http 403)
+
+#### Paramètres / Corps de requête
+
+| Paramètre | Type  | Description                    |
+|-----------|-------|--------------------------------|
+| id        | int64 | Identifiant de l'utilisateur   |
+
+```json
+{
+  "email": "string",
+  "handle": "string",
+  "password": "string",
+  "profile_picture": "string",
+  "role": "string"
+}
+```
+
+Règles de validation :
+
+- email : Optionnel, doit être un email valide
+- handle : Optionnel, minimum 3 caractères, ne doit pas commencer par '@' (il sera ajouté automatiquement)
+- password : Optionnel, minimum 8 caractères
+- profile_picture : Optionnel, doit être une URL valide ou null pour le supprimer
+- role : Optionnel, doit être un rôle existant dans la base de données ("ROLE_USER" ou "ROLE_ADMIN")
+
+#### Réponse
+
+```json
+{
+  "user": {
+    "id": 0,
+    "email": "string",
+    "handle": "string",
+    "auth_provider": "string",
+    "profile_picture": "string",
+    "role": {
+      "id": 0,
+      "name": "string"
+    },
+    "created_at": "string",
+    "updated_at": "string"
+  },
+  "tokens": {
+    "access_token": "string",
+    "refresh_token": "string"
+  }
+}
+```
+
+#### Trace
+
+```
+mux.Handle("PATCH /users/{id}", s.AuthMiddleware()(s.AdminMiddleware()(s.PatchUser())))
+└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                                                   # Authentifie l'utilisateur
+    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)                                      # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool                                          # Vérifie que la session de l'utilisateur est valide
+    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)                                  # Récupère le refresh_token de l'utilisateur
+    └─> func (s *Server) AdminMiddleware() func(http.Handler) http.Handler                                                      # Vérifie que l'utilisateur authentifié soit un administrateur
+        ├─> func (s *Server) PatchUser() http.HandlerFunc                                                                       # Handler HTTP
+        │   └─> func (s *Service) PatchUserForAdmin(ctx context.Context, id int64, body *validations.AdminUpdateUserValidator)  # Service
+        │       ├─> func (r *Roles) FindRole(ctx context.Context, role string)                                                  # Repository - récupération du rôle si modifié
+        │       └─> func (u *Users) Update(user *models.User, ctx context.Context) error                                        # Repository - mise à jour de l'utilisateur
+        ├─> func (s *Service) Authenticate(ctx context.Context, user *models.User)                                              # Génération des nouveaux tokens
+        ├─> func UserToDTO(user *models.User) *UserDTO                                                                          # Conversion DTO
+        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                                 # Ecriture de la réponse avec une fonction générique
+```
+
+### DELETE /users/{id}
+
+Cet endpoint permet de supprimer un compte utilisateur. Un utilisateur peut supprimer son propre compte, ou un administrateur peut supprimer n'importe quel compte.
+
+#### Authentification / Autorisations
+
+- L'utilisateur doit être authentifié (sinon code http 401)
+- L'utilisateur doit soit être l'utilisateur ciblé, soit être administrateur (sinon code http 403)
+
+#### Paramètres / Corps de requête
+
+| Paramètre | Type  | Description                    |
+|-----------|-------|--------------------------------|
+| id        | int64 | Identifiant de l'utilisateur   |
+
+Aucun corps de requête n'est requis pour cette requête.
+
+#### Réponse
+
+Retourne un code 204 (No Content) en cas de succès.
+
+#### Trace
+
+```
+mux.Handle("DELETE /users/{id}", s.AuthMiddleware()(s.DeleteUser()))
+└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                       # Authentifie l'utilisateur
+    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)          # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool              # Vérifie que la session de l'utilisateur est valide
+    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)      # Récupère le refresh_token de l'utilisateur
+    └─> func (s *Server) DeleteUser() http.HandlerFunc                                              # Handler HTTP qui vérifie si l'utilisateur est admin ou propriétaire
+        └─> func (s *Service) DeleteUser(ctx context.Context, id int64) error                       # Service
+            ├─> func (u *Users) FindByID(ctx context.Context, id int64) (*models.User, error)       # Repository - vérifie l'existence de l'utilisateur
+            └─> func (u *Users) Delete(ctx context.Context, id int64) error                         # Repository - suppression de l'utilisateur
+```
+
+### PATCH /users/me/update-password
+
+Cet endpoint permet à un utilisateur authentifié de mettre à jour son mot de passe. L'ancien mot de passe doit être fourni pour des raisons de sécurité.
+
+#### Authentification / Autorisations
+
+- L'utilisateur doit être authentifié (sinon code http 401)
+
+#### Paramètres / Corps de requête
+
+```json
+{
+  "old": "string",
+  "new": "string"
+}
+```
+
+Règles de validation :
+
+- old : Requis, doit correspondre au mot de passe actuel de l'utilisateur
+- new : Requis, minimum 8 caractères, doit être différent de l'ancien mot de passe
+
+#### Réponse
+
+```json
+{
+  "id": 0,
+  "email": "string",
+  "handle": "string",
+  "auth_provider": "string",
+  "profile_picture": "string",
+  "role": {
+    "id": 0,
+    "name": "string"
+  },
+  "created_at": "string",
+  "updated_at": "string"
+}
+```
+
+#### Trace
+
+```
+mux.Handle("PATCH /users/me/update-password", s.AuthMiddleware()(s.UpdatePassword()))
+└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                                                   # Authentifie l'utilisateur
+    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)                                      # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool                                          # Vérifie que la session de l'utilisateur est valide
+    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)                                  # Récupère le refresh_token de l'utilisateur
+    └─> func (s *Server) UpdatePassword() http.HandlerFunc                                                                      # Handler HTTP
+        ├─> func (s *Service) UpdatePassword(ctx context.Context, user *models.User, body validations.UpdatePasswordValidator)  # Service
+        │   ├─> func (s *Service) checkPassword(password string, user *models.User) error                                       # Vérifie l'ancien mot de passe
+        │   └─> func (u *Users) Update(user *models.User, ctx context.Context) error                                            # Repository - mise à jour du mot de passe
+        ├─> func UserToDTO(user *models.User) *UserDTO                                                                          # Conversion DTO
+        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                                 # Ecriture de la réponse avec une fonction générique
+```
+
+### GET /users/me/routes
+
+Cet endpoint permet à un utilisateur authentifié de récupérer la liste de tous ses itinéraires enregistrés.
+
+#### Authentification / Autorisations
+
+- L'utilisateur doit être authentifié (sinon code http 401)
+
+#### Paramètres / Corps de requête
+
+Aucun paramètre ni corps de requête n'est requis pour cette requête.
+
+#### Réponse
+
+```json
+[
+  {
+    "id": 0,
+    "name": "string",
+    "route": [
+      {
+        "lat": 0.0,
+        "lon": 0.0
+      }
+    ],
+    "created_at": "string",
+    "updated_at": "string"
+  },
+  ...
+]
+```
+
+#### Trace
+
+```
+mux.Handle("GET /users/me/routes", s.AuthMiddleware()(s.getUserRoutes()))
+└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                       # Authentifie l'utilisateur
+    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)          # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool              # Vérifie que la session de l'utilisateur est valide
+    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)      # Récupère le refresh_token de l'utilisateur
+    └─> func (s *Server) getUserRoutes() http.HandlerFunc                                           # Handler HTTP
+        ├─> func (s *Service) GetUserRoutes(ctx context.Context, user *models.User)                 # Service
+        │   └─> func (r *Routes) GetAllOfUser(ctx context.Context, user *models.User)               # Repository - récupération des routes
+        ├─> func RouteToDTO(route *models.Route) *RouteDTO                                          # Conversion DTO
+        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
+```
+
+### GET /users/me/routes/{routeId}
+
+Cet endpoint permet à un utilisateur authentifié de récupérer un itinéraire spécifique parmi ses routes enregistrées.
+
+#### Authentification / Autorisations
+
+- L'utilisateur doit être authentifié (sinon code http 401)
+
+#### Paramètres / Corps de requête
+
+| Paramètre | Type  | Description                  |
+|-----------|-------|------------------------------|
+| routeId   | int64 | Identifiant de l'itinéraire  |
+
+Aucun corps de requête n'est requis pour cette requête.
+
+#### Réponse
+
+```json
+{
+  "id": 0,
+  "name": "string",
+  "route": [
+    {
+      "lat": 0.0,
+      "lon": 0.0
+    },
+    ...
+  ],
+  "created_at": "string",
+  "updated_at": "string"
+}
+```
+#### Trace
+
+```
+mux.Handle("GET /users/me/routes/{routeId}", s.AuthMiddleware()(s.GetUserRoutesById()))
+└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                       # Authentifie l'utilisateur
+    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)          # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool              # Vérifie que la session de l'utilisateur est valide
+    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)      # Récupère le refresh_token de l'utilisateur
+    └─> func (s *Server) GetUserRoutesById() http.HandlerFunc                                       # Handler HTTP
+        ├─> func (s *Service) GetUserRouteById(ctx context.Context, userId, routeId int64)          # Service
+        │   └─> func (r *Routes) GetRouteUserById(ctx context.Context, userId, routeId int64)       # Repository - récupération de la route spécifique
+        ├─> func RouteToDTO(route *models.Route) *RouteDTO                                          # Conversion DTO
+        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
+```
+
+### POST /users/me/routes
+
+Cet endpoint permet à un utilisateur authentifié de créer un nouvel itinéraire.
+
+#### Authentification / Autorisations
+
+- L'utilisateur doit être authentifié (sinon code http 401)
+
+#### Paramètres / Corps de requête
+
+```json
+{
+  "name": "string",
+  "route": [
+    {
+      "lat": 0.0,
+      "lon": 0.0
+    },
+    ...
+  ]
+}
+```
+
+Règles de validation :
+
+- name : Requis, nom de l'itinéraire
+- route : Requis, tableau de points contenant au moins une coordonnée
+- route[].lat : Requis, latitude en degrés décimaux
+- route[].lon : Requis, longitude en degrés décimaux
+
+#### Réponse
+
+```json
+{
+  "id": 0,
+  "name": "string",
+  "route": [
+    {
+      "lat": 0.0,
+      "lon": 0.0
+    },
+    ...
+  ],
+  "created_at": "string",
+  "updated_at": "string"
+}
+```
+
+#### Trace
+
+```
+mux.Handle("POST /users/me/routes", s.AuthMiddleware()(s.CreateUserRoute()))
+└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                                                   # Authentifie l'utilisateur
+    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)                                      # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool                                          # Vérifie que la session de l'utilisateur est valide
+    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)                                  # Récupère le refresh_token de l'utilisateur
+    └─> func (s *Server) CreateUserRoute() http.HandlerFunc                                                                     # Handler HTTP
+        ├─> func (s *Service) CreateRouteForUser(ctx context.Context, user *models.User, route *validations.RouteValidator)     # Service
+        │   └─> func (r *Routes) InsertRoute(ctx context.Context, route *models.Route)                                          # Repository - création de la route
+        ├─> func RouteToDTO(route *models.Route) *RouteDTO                                                                      # Conversion DTO
+        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                                 # Ecriture de la réponse avec une fonction générique
+```
+
+### PATCH /users/me/routes/{routeId}
+
+Cet endpoint permet à un utilisateur authentifié de modifier un de ses itinéraires existants.
+
+#### Authentification / Autorisations
+
+- L'utilisateur doit être authentifié (sinon code http 401)
+
+#### Paramètres / Corps de requête
+
+| Paramètre | Type  | Description                  |
+|-----------|-------|------------------------------|
+| routeId   | int64 | Identifiant de l'itinéraire  |
+
+```json
+{
+  "name": "string",
+  "route": [
+    {
+      "lat": 0.0,
+      "lon": 0.0
+    },
+    ...
+  ]
+}
+```
+
+Règles de validation :
+
+- name : Requis, nouveau nom de l'itinéraire
+- route : Requis, nouveau tableau de points contenant au moins une coordonnée
+- route[].lat : Requis, latitude en degrés décimaux
+- route[].lon : Requis, longitude en degrés décimaux
+
+#### Réponse
+
+```json
+{
+  "id": 0,
+  "name": "string",
+  "route": [
+    {
+      "lat": 0.0,
+      "lon": 0.0
+    },
+    ...
+  ],
+  "created_at": "string",
+  "updated_at": "string"
+}
+```
+
+#### Trace
+
+```
+mux.Handle("PATCH /users/me/routes/{routeId}", s.AuthMiddleware()(s.PatchUserRoute()))
+└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                                                               # Authentifie l'utilisateur
+    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)                                                  # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool                                                      # Vérifie que la session de l'utilisateur est valide
+    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)                                              # Récupère le refresh_token de l'utilisateur
+    └─> func (s *Server) PatchUserRoute() http.HandlerFunc                                                                                  # Handler HTTP
+        ├─> func (s *Service) PatchUserRoute(ctx context.Context, user *models.User, routeId int64, route *validations.RouteValidator)      # Service
+        │   ├─> func (r *Routes) GetRouteUserById(ctx context.Context, userId, routeId int64)                                               # Repository - vérifie l'existence de la route
+        │   └─> func (r *Routes) UpdateRoute(ctx context.Context, route *models.Route)                                                      # Repository - mise à jour de la route
+        ├─> func RouteToDTO(route *models.Route) *RouteDTO                                                                                  # Conversion DTO
+        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                                             # Ecriture de la réponse avec une fonction générique
+```
+
+### DELETE /users/me/routes/{routeId}
+
+Cet endpoint permet à un utilisateur authentifié de supprimer un de ses itinéraires.
+
+#### Authentification / Autorisations
+
+- L'utilisateur doit être authentifié (sinon code http 401)
+
+#### Paramètres / Corps de requête
+
+| Paramètre | Type  | Description                  |
+|-----------|-------|------------------------------|
+| routeId   | int64 | Identifiant de l'itinéraire  |
+
+Aucun corps de requête n'est requis pour cette requête.
+
+#### Réponse
+
+Retourne un code 204 (No Content) en cas de succès.
+
+#### Trace
+
+```
+mux.Handle("DELETE /users/me/routes/{routeId}", s.AuthMiddleware()(s.DeleteUserRoute()))
+└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                       # Authentifie l'utilisateur
+    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)          # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool              # Vérifie que la session de l'utilisateur est valide
+    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)      # Récupère le refresh_token de l'utilisateur
+    └─> func (s *Server) DeleteUserRoute() http.HandlerFunc                                         # Handler HTTP
+        ├─> func (s *Service) DeleteRoute(ctx context.Context, routeId int64, user *models.User)    # Service
+        │   ├─> func (r *Routes) GetRouteUserById(ctx context.Context, userId, routeId int64)       # Repository - vérifie l'existence de la route
+        │   └─> func (r *Routes) DeleteRoute(ctx context.Context, routeId, userId int64)            # Repository - suppression de la route
+        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
+```
