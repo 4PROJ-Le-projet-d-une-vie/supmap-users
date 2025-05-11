@@ -1181,7 +1181,7 @@ mux.Handle("PATCH /users/me/routes/{routeId}", s.AuthMiddleware()(s.PatchUserRou
 </details>
 
 <details>
-<summary>/users/me/routes/{routeId}</summary>
+<summary>DELETE /users/me/routes/{routeId}</summary>
 
 ### DELETE /users/me/routes/{routeId}
 
