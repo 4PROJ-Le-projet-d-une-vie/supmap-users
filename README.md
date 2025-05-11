@@ -242,3 +242,282 @@ mux.Handle("GET /users", s.AuthMiddleware()(s.AdminMiddleware()(s.GetUsers())))
         ├─> func UserToDTO(user *models.User) *UserDTO                                              # Conversion DTO
         └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
 ```
+
+### GET /users/{id}
+
+Cet endpoint permet à un utilisateur authentifié en tant qu'administrateur d'accéder aux informations détaillées d'un utilisateur spécifique.
+
+#### Authentification / Autorisations
+
+- L'utilisateur doit être authentifié (sinon code http 401)
+- L'utilisateur doit avoir le role d'administrateur (sinon code http 403)
+
+#### Paramètres / Corps de requête
+
+| Paramètre | Type  | Description                    |
+|-----------|-------|--------------------------------|
+| id        | int64 | Identifiant de l'utilisateur   |
+
+#### Réponse
+
+```json
+{
+  "id": 0,
+  "email": "string",
+  "handle": "string",
+  "auth_provider": "string",
+  "profile_picture": "string",
+  "role": {
+    "id": 0,
+    "name": "string"
+  },
+  "created_at": "string",
+  "updated_at": "string"
+}
+```
+
+#### Trace
+
+```
+mux.Handle("GET /users/{id}", s.AuthMiddleware()(s.AdminMiddleware()(s.GetUserById())))
+└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                       # Authentifie l'utilisateur
+    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)          # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool              # Vérifie que la session de l'utilisateur est valide
+    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)      # Récupère le refresh_token de l'utilisateur
+    └─> func (s *Server) AdminMiddleware() func(http.Handler) http.Handler                          # Vérifie que l'utilisateur authentifié soit un administrateur
+        ├─> func (s *Server) GetUserById() http.HandlerFunc                                         # Handler HTTP
+        │   └─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)  # Service
+        │       └─> func (u *Users) FindByID(ctx context.Context, id int64) (*models.User, error)   # Repository
+        ├─> func UserToDTO(user *models.User) *UserDTO                                              # Conversion DTO
+        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
+```
+
+### GET /users/me
+
+Cet endpoint permet à un utilisateur authentifié d'accéder à ses propres informations.
+
+#### Authentification / Autorisations
+
+- L'utilisateur doit être authentifié (sinon code http 401)
+
+#### Paramètres / Corps de requête
+
+Aucun paramètre ni corps de requête n'est requis pour cette requête.
+Les données de l'utilisateur sont récupérée avec son `access_token`
+
+#### Réponse
+
+```json
+{
+  "id": 0,
+  "email": "string",
+  "handle": "string",
+  "auth_provider": "string",
+  "profile_picture": "string",
+  "role": {
+    "id": 0,
+    "name": "string"
+  },
+  "created_at": "string",
+  "updated_at": "string"
+}
+```
+
+#### Trace
+
+```
+mux.Handle("GET /users/me", s.AuthMiddleware()(s.GetMe()))
+└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                       # Authentifie l'utilisateur
+    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)          # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool              # Vérifie que la session de l'utilisateur est valide
+    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)      # Récupère le refresh_token de l'utilisateur
+    └─> func (s *Server) GetMe() http.HandlerFunc                                                   # Handler HTTP qui récupère l'utilisateur depuis le contexte
+        ├─> func UserToDTO(user *models.User) *UserDTO                                              # Conversion DTO
+        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
+```
+
+### POST /login
+
+Cet endpoint permet à un utilisateur de s'authentifier en utilisant soit son email, soit son handle avec son mot de passe. En cas de succès, il reçoit un access token et un refresh token.
+
+#### Authentification / Autorisations
+
+Aucune authentification n'est requise pour cet endpoint.
+
+#### Paramètres / Corps de requête
+
+```json
+{
+  "email": "string",
+  "handle": "string",
+  "password": "string"
+}
+```
+
+Règles de validation :
+- email : Optionnel si handle fourni. Doit être un email valide
+- handle : Optionnel si email fourni. Doit commencer par '@'
+- password : Requis
+
+#### Réponse
+
+```json
+{
+  "access_token": "string",
+  "refresh_token": "string"
+}
+```
+
+#### Trace
+
+```
+mux.Handle("POST /login", s.Login())
+└─> func (s *Server) Login() http.HandlerFunc                                                           # Handler HTTP
+    ├─> func (s *Service) Login(ctx context.Context, email, handle *string, password string)            # Service d'authentification
+    │   ├─> func (u *Users) FindByEmail(ctx context.Context, email string) (*models.User, error)        # Repository - recherche par email
+    │   └─> func (u *Users) FindByHandle(ctx context.Context, handle string) (*models.User, error)      # Repository - recherche par handle
+    ├─> func (s *Service) Authenticate(ctx context.Context, user *models.User)                          # Génération des tokens
+    │   └─> func (t *Tokens) Insert(ctx context.Context, token *models.Token) error                     # Sauvegarde du refresh token
+    └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error             # Ecriture de la réponse avec une fonction générique
+```
+
+### POST /register
+
+Cet endpoint permet à un utilisateur de créer un nouveau compte. En cas de succès, il reçoit les informations de son compte ainsi qu'un access token et un refresh token pour être directement authentifié.
+
+#### Authentification / Autorisations
+
+Aucune authentification n'est requise pour cet endpoint.
+
+#### Paramètres / Corps de requête
+
+```json
+{
+  "email": "string",
+  "handle": "string",
+  "password": "string",
+  "profile_picture": "string"
+}
+```
+
+Règles de validation :
+
+- email : Requis, doit être un email valide
+- handle : Requis, minimum 3 caractères, ne doit pas commencer par '@' (il sera ajouté automatiquement)
+- password : Requis, minimum 8 caractères
+- profile_picture : Optionnel, doit être une URL valide
+
+#### Réponse
+
+```json
+{
+  "user": {
+    "id": 0,
+    "email": "string",
+    "handle": "string",
+    "auth_provider": "string",
+    "profile_picture": "string",
+    "role": {
+      "id": 0,
+      "name": "string"
+    },
+    "created_at": "string",
+    "updated_at": "string"
+  },
+  "tokens": {
+    "access_token": "string",
+    "refresh_token": "string"
+  }
+}
+```
+
+#### Trace
+
+```
+mux.Handle("POST /register", s.Register())
+└─> func (s *Server) Register() http.HandlerFunc                                                    # Handler HTTP
+    ├─> func (s *Service) CreateUser(ctx context.Context, body validations.CreateUserValidator)     # Service de création
+    │   ├─> func (r *Roles) FindUserRole(ctx context.Context) (*models.Role, error)                 # Repository - récupération du rôle par défaut
+    │   └─> func (u *Users) Insert(user *models.User, ctx context.Context) error                    # Repository - insertion du nouvel utilisateur
+    ├─> func (s *Service) Authenticate(ctx context.Context, user *models.User)                      # Génération des tokens
+    │   └─> func (t *Tokens) Insert(ctx context.Context, token *models.Token) error                 # Sauvegarde du refresh token
+    ├─> func UserToDTO(user *models.User) *UserDTO                                                  # Conversion DTO
+    └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error         # Ecriture de la réponse avec une fonction générique
+```
+
+### POST /refresh
+
+Cet endpoint permet d'obtenir un nouveau access token à partir d'un refresh token valide, sans avoir à se réauthentifier avec ses identifiants.
+
+#### Authentification / Autorisations
+
+Aucune authentification n'est requise pour cet endpoint, mais un refresh token valide doit être fourni.
+
+#### Paramètres / Corps de requête
+
+```json
+{
+  "token": "string"
+}
+```
+
+Règles de validation :
+
+- token : Requis, doit être un refresh token valide précédemment obtenu via login ou register
+
+#### Réponse
+
+```json
+{
+  "access_token": "string"
+}
+```
+
+#### Trace
+
+```
+mux.Handle("POST /refresh", s.Refresh())
+└─> func (s *Server) Refresh() http.HandlerFunc                                                 # Handler HTTP
+    ├─> func (s *Service) RefreshToken(ctx context.Context, refreshToken string)                # Service de refresh
+    │   └─> func (t *Tokens) GetUserFromRefreshToken(ctx context.Context, refreshToken string)  # Repository - vérifie le token et récupère l'utilisateur
+    ├─> func (s *Service) generateAccessToken(user *models.User)                                # Génération du nouveau token
+    └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
+```
+
+### POST /logout
+
+Cet endpoint permet à un utilisateur authentifié d'invalider son refresh token actuel, le déconnectant effectivement de l'application.
+
+#### Authentification / Autorisations
+
+- L'utilisateur doit être authentifié (sinon code http 401)
+
+#### Paramètres / Corps de requête
+
+```json
+{
+  "token": "string"
+}
+```
+
+Règles de validation :
+
+- token : Requis, doit être le refresh token actif de l'utilisateur authentifié
+
+#### Réponse
+
+Retourne un code 204 (No Content) en cas de succès.
+
+#### Trace
+
+```
+mux.Handle("POST /logout", s.AuthMiddleware()(s.Logout()))
+└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                       # Authentifie l'utilisateur
+    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)          # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool              # Vérifie que la session de l'utilisateur est valide
+    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)      # Récupère le refresh_token de l'utilisateur
+    └─> func (s *Server) Logout() http.HandlerFunc                                                  # Handler HTTP
+        ├─> func (s *Service) Logout(ctx context.Context, user *models.User, refreshToken string)   # Service de déconnexion
+        │   └─> func (t *Tokens) Delete(ctx context.Context, user *models.User) error               # Repository - suppression du refresh token
+        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
+```
