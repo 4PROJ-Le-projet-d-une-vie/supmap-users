@@ -276,16 +276,17 @@ Aucun paramètre ni corp de requête n'est requis pour cette requête
 
 ```
 mux.Handle("GET /users", s.AuthMiddleware()(s.AdminMiddleware()(s.GetUsers())))
-└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                       # Authentifie l'utilisateur
-    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)          # Récupération de l'utilisateur à partir des informations de son token JWT décodé
-    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool              # Vérifie que la session de l'utilisateur est valide
-    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)      # Récupère le refresh_token de l'utilisateur
-    └─> func (s *Server) AdminMiddleware() func(http.Handler) http.Handler                          # Vérifie que l'utilisateur authentifié soit un administrateur
-        ├─> func (s *Server) GetUsers() http.HandlerFunc                                            # Handler HTTP
-        │   └─> func (s *Service) GetAllUsers(ctx context.Context) ([]models.User, error)           # Service
-        │       └─> func (u *Users) FindAll(ctx context.Context) ([]models.User, error)             # Repository
-        ├─> func UserToDTO(user *models.User) *UserDTO                                              # Conversion DTO
-        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
+├─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler                           # Authentifie l'utilisateur
+│   ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)      # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+│   │   └─> func (u *Users) FindByID(ctx context.Context, id int64) (*models.User, error)
+│   └─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool          # Vérifie que la session de l'utilisateur est valide
+│       └─> func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)      # Récupère le refresh_token de l'utilisateur
+├─> func (s *Server) AdminMiddleware() func(http.Handler) http.Handler                          # Vérifie que l'utilisateur authentifié soit un administrateur
+└─> func (s *Server) GetUsers() http.HandlerFunc                                                # Handler HTTP
+    ├─> func (s *Service) GetAllUsers(ctx context.Context) ([]models.User, error)               # Service
+    │   └─> func (u *Users) FindAll(ctx context.Context) ([]models.User, error)                 # Repository
+    ├─> func UserToDTO(user *models.User) *UserDTO                                              # Conversion DTO
+    └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
 ```
 </details>
 
@@ -329,16 +330,17 @@ Cet endpoint permet à un utilisateur authentifié en tant qu'administrateur d'a
 
 ```
 mux.Handle("GET /users/{id}", s.AuthMiddleware()(s.AdminMiddleware()(s.GetUserById())))
-└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                       # Authentifie l'utilisateur
-    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)          # Récupération de l'utilisateur à partir des informations de son token JWT décodé
-    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool              # Vérifie que la session de l'utilisateur est valide
-    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)      # Récupère le refresh_token de l'utilisateur
-    └─> func (s *Server) AdminMiddleware() func(http.Handler) http.Handler                          # Vérifie que l'utilisateur authentifié soit un administrateur
-        ├─> func (s *Server) GetUserById() http.HandlerFunc                                         # Handler HTTP
-        │   └─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)  # Service
-        │       └─> func (u *Users) FindByID(ctx context.Context, id int64) (*models.User, error)   # Repository
-        ├─> func UserToDTO(user *models.User) *UserDTO                                              # Conversion DTO
-        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
+├─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler                               # Authentifie l'utilisateur
+│   ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)          # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+│   │   └─> func (u *Users) FindByID(ctx context.Context, id int64) (*models.User, error)           # Repository
+│   └─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool              # Vérifie que la session de l'utilisateur est valide
+│       └─> func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)     # Récupère le refresh_token de l'utilisateur
+├─> func (s *Server) AdminMiddleware() func(http.Handler) http.Handler                              # Vérifie que l'utilisateur authentifié soit un administrateur
+└─> func (s *Server) GetUserById() http.HandlerFunc                                                 # Handler HTTP
+    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)          # Service
+    │   └─> func (u *Users) FindByID(ctx context.Context, id int64) (*models.User, error)           # Repository
+    ├─> func UserToDTO(user *models.User) *UserDTO                                                  # Conversion DTO
+    └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error         # Ecriture de la réponse avec une fonction générique
 ```
 </details>
 
@@ -380,13 +382,14 @@ Les données de l'utilisateur sont récupérée avec son `access_token`
 
 ```
 mux.Handle("GET /users/me", s.AuthMiddleware()(s.GetMe()))
-└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                       # Authentifie l'utilisateur
-    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)          # Récupération de l'utilisateur à partir des informations de son token JWT décodé
-    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool              # Vérifie que la session de l'utilisateur est valide
-    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)      # Récupère le refresh_token de l'utilisateur
-    └─> func (s *Server) GetMe() http.HandlerFunc                                                   # Handler HTTP qui récupère l'utilisateur depuis le contexte
-        ├─> func UserToDTO(user *models.User) *UserDTO                                              # Conversion DTO
-        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
+├─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler                               # Authentifie l'utilisateur
+│   ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)          # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+│   │   └─> func (u *Users) FindByID(ctx context.Context, id int64) (*models.User, error)           # Repository
+│   └─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool              # Vérifie que la session de l'utilisateur est valide
+│       └─> func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)     # Récupère le refresh_token de l'utilisateur
+└─> func (s *Server) GetMe() http.HandlerFunc                                                       # Handler HTTP
+    ├─> func UserToDTO(user *models.User) *UserDTO                                                  # Conversion DTO
+    └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error         # Ecriture de la réponse avec une fonction générique
 ```
 </details>
 
@@ -581,14 +584,15 @@ Retourne un code 204 (No Content) en cas de succès.
 
 ```
 mux.Handle("POST /logout", s.AuthMiddleware()(s.Logout()))
-└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                       # Authentifie l'utilisateur
-    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)          # Récupération de l'utilisateur à partir des informations de son token JWT décodé
-    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool              # Vérifie que la session de l'utilisateur est valide
-    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)      # Récupère le refresh_token de l'utilisateur
-    └─> func (s *Server) Logout() http.HandlerFunc                                                  # Handler HTTP
-        ├─> func (s *Service) Logout(ctx context.Context, user *models.User, refreshToken string)   # Service de déconnexion
-        │   └─> func (t *Tokens) Delete(ctx context.Context, user *models.User) error               # Repository - suppression du refresh token
-        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
+├─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler                           # Authentifie l'utilisateur
+│   ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)      # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+│   │   └─> func (u *Users) FindByID(ctx context.Context, id int64) (*models.User, error)       # Repository
+│   └─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool          # Vérifie que la session de l'utilisateur est valide
+│       └─> func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error) # Récupère le refresh_token de l'utilisateur
+└─> func (s *Server) Logout() http.HandlerFunc                                                  # Handler HTTP
+    ├─> func (s *Service) Logout(ctx context.Context, user *models.User, refreshToken string)   # Service de déconnexion
+    │   └─> func (t *Tokens) Delete(ctx context.Context, user *models.User) error               # Repository - suppression du refresh token
+    └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
 ```
 </details>
 
@@ -644,17 +648,18 @@ Règles de validation :
 
 ```
 mux.Handle("POST /users", s.AuthMiddleware()(s.AdminMiddleware()(s.CreateUser())))
-└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                                           # Authentifie l'utilisateur
-    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)                              # Récupération de l'utilisateur à partir des informations de son token JWT décodé
-    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool                                  # Vérifie que la session de l'utilisateur est valide
-    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)                          # Récupère le refresh_token de l'utilisateur
-    └─> func (s *Server) AdminMiddleware() func(http.Handler) http.Handler                                              # Vérifie que l'utilisateur authentifié soit un administrateur
-        ├─> func (s *Server) CreateUser() http.HandlerFunc                                                              # Handler HTTP
-        │   └─> func (s *Service) CreateUserForAdmin(ctx context.Context, body validations.AdminCreateUserValidator)    # Service
-        │       ├─> func (r *Roles) FindRole(ctx context.Context, role string)                                          # Repository - récupération du rôle spécifié
-        │       └─> func (u *Users) Insert(user *models.User, ctx context.Context) error                                # Repository - insertion du nouvel utilisateur
-        ├─> func UserToDTO(user *models.User) *UserDTO                                                                  # Conversion DTO
-        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                         # Ecriture de la réponse avec une fonction générique
+├─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler                                           # Authentifie l'utilisateur
+│   ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)                      # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+│   │   └─> func (u *Users) FindByID(ctx context.Context, id int64) (*models.User, error)                       # Repository
+│   └─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool                          # Vérifie que la session de l'utilisateur est valide
+│       └─> func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)                 # Récupère le refresh_token de l'utilisateur
+├─> func (s *Server) AdminMiddleware() func(http.Handler) http.Handler                                          # Vérifie que l'utilisateur authentifié soit un administrateur
+└─> func (s *Server) CreateUser() http.HandlerFunc                                                              # Handler HTTP
+    ├─> func (s *Service) CreateUserForAdmin(ctx context.Context, body validations.AdminCreateUserValidator)    # Service
+    │   ├─> func (r *Roles) FindRole(ctx context.Context, role string)                                          # Repository - récupération du rôle spécifié
+    │   └─> func (u *Users) Insert(user *models.User, ctx context.Context) error                                # Repository - insertion du nouvel utilisateur
+    ├─> func UserToDTO(user *models.User) *UserDTO                                                              # Conversion DTO
+    └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                     # Ecriture de la réponse avec une fonction générique
 ```
 </details>
 
@@ -713,16 +718,18 @@ Règles de validation :
 
 ```
 mux.Handle("PATCH /users/me", s.AuthMiddleware()(s.PatchMe()))
-└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                                   # Authentifie l'utilisateur
-    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)                      # Récupération de l'utilisateur à partir des informations de son token JWT décodé
-    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool                          # Vérifie que la session de l'utilisateur est valide
-    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)                  # Récupère le refresh_token de l'utilisateur
-    └─> func (s *Server) PatchMe() http.HandlerFunc                                                             # Handler HTTP
-        ├─> func (s *Service) PatchUser(ctx context.Context, id int64, body validations.UpdateUserValidator)    # Service
-        │   └─> func (u *Users) Update(user *models.User, ctx context.Context) error                            # Repository - mise à jour de l'utilisateur
-        ├─> func (s *Service) Authenticate(ctx context.Context, user *models.User)                              # Génération des nouveaux tokens
-        ├─> func UserToDTO(user *models.User) *UserDTO                                                          # Conversion DTO
-        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                 # Ecriture de la réponse avec une fonction générique
+├─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler                                       # Authentifie l'utilisateur
+│   ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)                  # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+│   │   └─> func (u *Users) FindByID(ctx context.Context, id int64) (*models.User, error)                   # Repository
+│   └─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool                      # Vérifie que la session de l'utilisateur est valide
+│       └─> func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)             # Récupère le refresh_token de l'utilisateur
+└─> func (s *Server) PatchMe() http.HandlerFunc                                                             # Handler HTTP
+    ├─> func (s *Service) PatchUser(ctx context.Context, id int64, body validations.UpdateUserValidator)    # Service
+    │   └─> func (u *Users) Update(user *models.User, ctx context.Context) error                            # Repository - mise à jour de l'utilisateur
+    ├─> func (s *Service) Authenticate(ctx context.Context, user *models.User)                              # Génération des nouveaux tokens
+    │   └─> func (t *Tokens) Insert(ctx context.Context, token *models.Token) error                         # Sauvegarde du refresh token
+    ├─> func UserToDTO(user *models.User) *UserDTO                                                          # Conversion DTO
+    └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                 # Ecriture de la réponse avec une fonction générique
 ```
 </details>
 
@@ -787,98 +794,26 @@ Règles de validation :
 #### Trace
 
 ```
-mux.Handle("PATCH /users/me", s.AuthMiddleware()(s.PatchMe()))
-└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                                   # Authentifie l'utilisateur
-    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)                      # Récupération de l'utilisateur à partir des informations de son token JWT décodé
-    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool                          # Vérifie que la session de l'utilisateur est valide
-    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)                  # Récupère le refresh_token de l'utilisateur
-    └─> func (s *Server) PatchMe() http.HandlerFunc                                                             # Handler HTTP
-        ├─> func (s *Service) PatchUser(ctx context.Context, id int64, body validations.UpdateUserValidator)    # Service
-        │   └─> func (u *Users) Update(user *models.User, ctx context.Context) error                            # Repository - mise à jour de l'utilisateur
-        ├─> func (s *Service) Authenticate(ctx context.Context, user *models.User)                              # Génération des nouveaux tokens
-        ├─> func UserToDTO(user *models.User) *UserDTO                                                          # Conversion DTO
-        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                 # Ecriture de la réponse avec une fonction générique
+mux.Handle("PATCH /users/{id}", s.AuthMiddleware()(s.AdminMiddleware()(s.PatchUser())))
+├─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler                                                   # Authentifie l'utilisateur
+│   ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)                              # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+│   │   └─> func (u *Users) FindByID(ctx context.Context, id int64) (*models.User, error)                               # Repository
+│   └─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool                                  # Vérifie que la session de l'utilisateur est valide
+│       └─> func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)                         # Récupère le refresh_token de l'utilisateur
+├─> func (s *Server) AdminMiddleware() func(http.Handler) http.Handler                                                  # Vérifie que l'utilisateur authentifié soit un administrateur
+└─> func (s *Server) PatchUser() http.HandlerFunc                                                                       # Handler HTTP
+    ├─> func (s *Service) PatchUserForAdmin(ctx context.Context, id int64, body *validations.AdminUpdateUserValidator)  # Service
+    │   ├─> func (r *Roles) FindRole(ctx context.Context, role string)                                                  # Repository - récupération du rôle si modifié
+    │   └─> func (u *Users) Update(user *models.User, ctx context.Context) error                                        # Repository - mise à jour de l'utilisateur
+    ├─> func (s *Service) Authenticate(ctx context.Context, user *models.User)                                          # Génération des nouveaux tokens
+    │   └─> func (t *Tokens) Insert(ctx context.Context, token *models.Token) error                                     # Sauvegarde du refresh token
+    ├─> func UserToDTO(user *models.User) *UserDTO                                                                      # Conversion DTO
+    └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                             # Ecriture de la réponse avec une fonction générique
 ```
 </details>
 
 <details>
 <summary>PATCH /users/{id}</summary>
-
-### PATCH /users/{id}
-
-Cet endpoint permet à un administrateur de modifier les informations d'un utilisateur spécifique, y compris son rôle.
-
-#### Authentification / Autorisations
-
-- L'utilisateur doit être authentifié (sinon code http 401)
-- L'utilisateur doit avoir le role d'administrateur (sinon code http 403)
-
-#### Paramètres / Corps de requête
-
-| Paramètre | Type  | Description                    |
-|-----------|-------|--------------------------------|
-| id        | int64 | Identifiant de l'utilisateur   |
-
-```json
-{
-  "email": "string",
-  "handle": "string",
-  "password": "string",
-  "profile_picture": "string",
-  "role": "string"
-}
-```
-
-Règles de validation :
-
-- email : Optionnel, doit être un email valide
-- handle : Optionnel, minimum 3 caractères, ne doit pas commencer par '@' (il sera ajouté automatiquement)
-- password : Optionnel, minimum 8 caractères
-- profile_picture : Optionnel, doit être une URL valide ou null pour le supprimer
-- role : Optionnel, doit être un rôle existant dans la base de données ("ROLE_USER" ou "ROLE_ADMIN")
-
-#### Réponse
-
-```json
-{
-  "user": {
-    "id": 0,
-    "email": "string",
-    "handle": "string",
-    "auth_provider": "string",
-    "profile_picture": "string",
-    "role": {
-      "id": 0,
-      "name": "string"
-    },
-    "created_at": "string",
-    "updated_at": "string"
-  },
-  "tokens": {
-    "access_token": "string",
-    "refresh_token": "string"
-  }
-}
-```
-
-#### Trace
-
-```
-mux.Handle("PATCH /users/{id}", s.AuthMiddleware()(s.AdminMiddleware()(s.PatchUser())))
-└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                                                   # Authentifie l'utilisateur
-    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)                                      # Récupération de l'utilisateur à partir des informations de son token JWT décodé
-    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool                                          # Vérifie que la session de l'utilisateur est valide
-    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)                                  # Récupère le refresh_token de l'utilisateur
-    └─> func (s *Server) AdminMiddleware() func(http.Handler) http.Handler                                                      # Vérifie que l'utilisateur authentifié soit un administrateur
-        ├─> func (s *Server) PatchUser() http.HandlerFunc                                                                       # Handler HTTP
-        │   └─> func (s *Service) PatchUserForAdmin(ctx context.Context, id int64, body *validations.AdminUpdateUserValidator)  # Service
-        │       ├─> func (r *Roles) FindRole(ctx context.Context, role string)                                                  # Repository - récupération du rôle si modifié
-        │       └─> func (u *Users) Update(user *models.User, ctx context.Context) error                                        # Repository - mise à jour de l'utilisateur
-        ├─> func (s *Service) Authenticate(ctx context.Context, user *models.User)                                              # Génération des nouveaux tokens
-        ├─> func UserToDTO(user *models.User) *UserDTO                                                                          # Conversion DTO
-        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                                 # Ecriture de la réponse avec une fonction générique
-```
-</details>
 
 <details>
 <summary>DELETE /users/{id}</summary>
@@ -908,14 +843,15 @@ Retourne un code 204 (No Content) en cas de succès.
 
 ```
 mux.Handle("DELETE /users/{id}", s.AuthMiddleware()(s.DeleteUser()))
-└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                       # Authentifie l'utilisateur
-    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)          # Récupération de l'utilisateur à partir des informations de son token JWT décodé
-    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool              # Vérifie que la session de l'utilisateur est valide
-    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)      # Récupère le refresh_token de l'utilisateur
-    └─> func (s *Server) DeleteUser() http.HandlerFunc                                              # Handler HTTP qui vérifie si l'utilisateur est admin ou propriétaire
-        └─> func (s *Service) DeleteUser(ctx context.Context, id int64) error                       # Service
-            ├─> func (u *Users) FindByID(ctx context.Context, id int64) (*models.User, error)       # Repository - vérifie l'existence de l'utilisateur
-            └─> func (u *Users) Delete(ctx context.Context, id int64) error                         # Repository - suppression de l'utilisateur
+├─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler                           # Authentifie l'utilisateur
+│   ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)      # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+│   │   └─> func (u *Users) FindByID(ctx context.Context, id int64) (*models.User, error)       # Repository
+│   └─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool          # Vérifie que la session de l'utilisateur est valide
+│       └─> func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error) # Récupère le refresh_token de l'utilisateur
+└─> func (s *Server) DeleteUser() http.HandlerFunc                                              # Handler HTTP qui vérifie si l'utilisateur est admin ou propriétaire
+    └─> func (s *Service) DeleteUser(ctx context.Context, id int64) error                       # Service
+        ├─> func (u *Users) FindByID(ctx context.Context, id int64) (*models.User, error)       # Repository - vérifie l'existence de l'utilisateur
+        └─> func (u *Users) Delete(ctx context.Context, id int64) error                         # Repository - suppression de l'utilisateur
 ```
 </details>
 
@@ -966,16 +902,17 @@ Règles de validation :
 
 ```
 mux.Handle("PATCH /users/me/update-password", s.AuthMiddleware()(s.UpdatePassword()))
-└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                                                   # Authentifie l'utilisateur
-    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)                                      # Récupération de l'utilisateur à partir des informations de son token JWT décodé
-    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool                                          # Vérifie que la session de l'utilisateur est valide
-    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)                                  # Récupère le refresh_token de l'utilisateur
-    └─> func (s *Server) UpdatePassword() http.HandlerFunc                                                                      # Handler HTTP
-        ├─> func (s *Service) UpdatePassword(ctx context.Context, user *models.User, body validations.UpdatePasswordValidator)  # Service
-        │   ├─> func (s *Service) checkPassword(password string, user *models.User) error                                       # Vérifie l'ancien mot de passe
-        │   └─> func (u *Users) Update(user *models.User, ctx context.Context) error                                            # Repository - mise à jour du mot de passe
-        ├─> func UserToDTO(user *models.User) *UserDTO                                                                          # Conversion DTO
-        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                                 # Ecriture de la réponse avec une fonction générique
+├─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler                                                       # Authentifie l'utilisateur
+│   ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)                                  # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+│   │   └─> func (u *Users) FindByID(ctx context.Context, id int64) (*models.User, error)                                   # Repository
+│   └─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool                                      # Vérifie que la session de l'utilisateur est valide
+│       └─> func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)                             # Récupère le refresh_token de l'utilisateur
+└─> func (s *Server) UpdatePassword() http.HandlerFunc                                                                      # Handler HTTP
+    ├─> func (s *Service) UpdatePassword(ctx context.Context, user *models.User, body validations.UpdatePasswordValidator)  # Service
+    │   ├─> func (s *Service) checkPassword(password string, user *models.User) error                                       # Vérifie l'ancien mot de passe
+    │   └─> func (u *Users) Update(user *models.User, ctx context.Context) error                                            # Repository - mise à jour du mot de passe
+    ├─> func UserToDTO(user *models.User) *UserDTO                                                                          # Conversion DTO
+    └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                                 # Ecriture de la réponse avec une fonction générique
 ```
 </details>
 
@@ -1018,15 +955,16 @@ Aucun paramètre ni corps de requête n'est requis pour cette requête.
 
 ```
 mux.Handle("GET /users/me/routes", s.AuthMiddleware()(s.getUserRoutes()))
-└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                       # Authentifie l'utilisateur
-    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)          # Récupération de l'utilisateur à partir des informations de son token JWT décodé
-    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool              # Vérifie que la session de l'utilisateur est valide
-    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)      # Récupère le refresh_token de l'utilisateur
-    └─> func (s *Server) getUserRoutes() http.HandlerFunc                                           # Handler HTTP
-        ├─> func (s *Service) GetUserRoutes(ctx context.Context, user *models.User)                 # Service
-        │   └─> func (r *Routes) GetAllOfUser(ctx context.Context, user *models.User)               # Repository - récupération des routes
-        ├─> func RouteToDTO(route *models.Route) *RouteDTO                                          # Conversion DTO
-        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
+├─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler                               # Authentifie l'utilisateur
+│   ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)          # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+│   │   └─> func (u *Users) FindByID(ctx context.Context, id int64) (*models.User, error)           # Repository
+│   └─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool              # Vérifie que la session de l'utilisateur est valide
+│       └─> func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)     # Récupère le refresh_token de l'utilisateur
+└─> func (s *Server) getUserRoutes() http.HandlerFunc                                               # Handler HTTP
+    ├─> func (s *Service) GetUserRoutes(ctx context.Context, user *models.User)                     # Service
+    │   └─> func (r *Routes) GetAllOfUser(ctx context.Context, user *models.User)                   # Repository - récupération des routes
+    ├─> func RouteToDTO(route *models.Route) *RouteDTO                                              # Conversion DTO
+    └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error         # Ecriture de la réponse avec une fonction générique
 ```
 </details>
 
@@ -1071,15 +1009,16 @@ Aucun corps de requête n'est requis pour cette requête.
 
 ```
 mux.Handle("GET /users/me/routes/{routeId}", s.AuthMiddleware()(s.GetUserRoutesById()))
-└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                       # Authentifie l'utilisateur
-    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)          # Récupération de l'utilisateur à partir des informations de son token JWT décodé
-    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool              # Vérifie que la session de l'utilisateur est valide
-    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)      # Récupère le refresh_token de l'utilisateur
-    └─> func (s *Server) GetUserRoutesById() http.HandlerFunc                                       # Handler HTTP
-        ├─> func (s *Service) GetUserRouteById(ctx context.Context, userId, routeId int64)          # Service
-        │   └─> func (r *Routes) GetRouteUserById(ctx context.Context, userId, routeId int64)       # Repository - récupération de la route spécifique
-        ├─> func RouteToDTO(route *models.Route) *RouteDTO                                          # Conversion DTO
-        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
+├─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler                               # Authentifie l'utilisateur
+│   ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)          # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+│   │   └─> func (u *Users) FindByID(ctx context.Context, id int64) (*models.User, error)           # Repository
+│   └─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool              # Vérifie que la session de l'utilisateur est valide
+│       └─> func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)     # Récupère le refresh_token de l'utilisateur
+└─> func (s *Server) GetUserRoutesById() http.HandlerFunc                                           # Handler HTTP
+    ├─> func (s *Service) GetUserRouteById(ctx context.Context, userId, routeId int64)              # Service
+    │   └─> func (r *Routes) GetRouteUserById(ctx context.Context, userId, routeId int64)           # Repository - récupération de la route spécifique
+    ├─> func RouteToDTO(route *models.Route) *RouteDTO                                              # Conversion DTO
+    └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error         # Ecriture de la réponse avec une fonction générique
 ```
 </details>
 
@@ -1138,15 +1077,16 @@ Règles de validation :
 
 ```
 mux.Handle("POST /users/me/routes", s.AuthMiddleware()(s.CreateUserRoute()))
-└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                                                   # Authentifie l'utilisateur
-    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)                                      # Récupération de l'utilisateur à partir des informations de son token JWT décodé
-    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool                                          # Vérifie que la session de l'utilisateur est valide
-    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)                                  # Récupère le refresh_token de l'utilisateur
-    └─> func (s *Server) CreateUserRoute() http.HandlerFunc                                                                     # Handler HTTP
-        ├─> func (s *Service) CreateRouteForUser(ctx context.Context, user *models.User, route *validations.RouteValidator)     # Service
-        │   └─> func (r *Routes) InsertRoute(ctx context.Context, route *models.Route)                                          # Repository - création de la route
-        ├─> func RouteToDTO(route *models.Route) *RouteDTO                                                                      # Conversion DTO
-        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                                 # Ecriture de la réponse avec une fonction générique
+├─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler                                                       # Authentifie l'utilisateur
+│   ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)                                  # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+│   │   └─> func (u *Users) FindByID(ctx context.Context, id int64) (*models.User, error)                                   # Repository
+│   └─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool                                      # Vérifie que la session de l'utilisateur est valide
+│       └─> func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)                             # Récupère le refresh_token de l'utilisateur
+└─> func (s *Server) CreateUserRoute() http.HandlerFunc                                                                     # Handler HTTP
+    ├─> func (s *Service) CreateRouteForUser(ctx context.Context, user *models.User, route *validations.RouteValidator)     # Service
+    │   └─> func (r *Routes) InsertRoute(ctx context.Context, route *models.Route)                                          # Repository - création de la route
+    ├─> func RouteToDTO(route *models.Route) *RouteDTO                                                                      # Conversion DTO
+    └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                                 # Ecriture de la réponse avec une fonction générique
 ```
 </details>
 
@@ -1209,16 +1149,17 @@ Règles de validation :
 
 ```
 mux.Handle("PATCH /users/me/routes/{routeId}", s.AuthMiddleware()(s.PatchUserRoute()))
-└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                                                               # Authentifie l'utilisateur
-    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)                                                  # Récupération de l'utilisateur à partir des informations de son token JWT décodé
-    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool                                                      # Vérifie que la session de l'utilisateur est valide
-    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)                                              # Récupère le refresh_token de l'utilisateur
-    └─> func (s *Server) PatchUserRoute() http.HandlerFunc                                                                                  # Handler HTTP
-        ├─> func (s *Service) PatchUserRoute(ctx context.Context, user *models.User, routeId int64, route *validations.RouteValidator)      # Service
-        │   ├─> func (r *Routes) GetRouteUserById(ctx context.Context, userId, routeId int64)                                               # Repository - vérifie l'existence de la route
-        │   └─> func (r *Routes) UpdateRoute(ctx context.Context, route *models.Route)                                                      # Repository - mise à jour de la route
-        ├─> func RouteToDTO(route *models.Route) *RouteDTO                                                                                  # Conversion DTO
-        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                                             # Ecriture de la réponse avec une fonction générique
+├─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler                                                               # Authentifie l'utilisateur
+│   ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)                                          # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+│   │   └─> func (u *Users) FindByID(ctx context.Context, id int64) (*models.User, error)                                           # Repository
+│   └─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool                                              # Vérifie que la session de l'utilisateur est valide
+│       └─> func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)                                     # Récupère le refresh_token de l'utilisateur
+└─> func (s *Server) PatchUserRoute() http.HandlerFunc                                                                              # Handler HTTP
+    ├─> func (s *Service) PatchUserRoute(ctx context.Context, user *models.User, routeId int64, route *validations.RouteValidator)  # Service
+    │   ├─> func (r *Routes) GetRouteUserById(ctx context.Context, userId, routeId int64)                                           # Repository - vérifie l'existence de la route
+    │   └─> func (r *Routes) UpdateRoute(ctx context.Context, route *models.Route)                                                  # Repository - mise à jour de la route
+    ├─> func RouteToDTO(route *models.Route) *RouteDTO                                                                              # Conversion DTO
+    └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error                                         # Ecriture de la réponse avec une fonction générique
 ```
 </details>
 
@@ -1249,14 +1190,15 @@ Retourne un code 204 (No Content) en cas de succès.
 
 ```
 mux.Handle("DELETE /users/me/routes/{routeId}", s.AuthMiddleware()(s.DeleteUserRoute()))
-└─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler { ... }                       # Authentifie l'utilisateur
-    ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)          # Récupération de l'utilisateur à partir des informations de son token JWT décodé
-    ├─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool              # Vérifie que la session de l'utilisateur est valide
-    │   └─>func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error)      # Récupère le refresh_token de l'utilisateur
-    └─> func (s *Server) DeleteUserRoute() http.HandlerFunc                                         # Handler HTTP
-        ├─> func (s *Service) DeleteRoute(ctx context.Context, routeId int64, user *models.User)    # Service
-        │   ├─> func (r *Routes) GetRouteUserById(ctx context.Context, userId, routeId int64)       # Repository - vérifie l'existence de la route
-        │   └─> func (r *Routes) DeleteRoute(ctx context.Context, routeId, userId int64)            # Repository - suppression de la route
-        └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error     # Ecriture de la réponse avec une fonction générique
+├─> func (s *Server) AuthMiddleware() func(http.Handler) http.Handler                           # Authentifie l'utilisateur
+│   ├─> func (s *Service) GetUserByID(ctx context.Context, id int64) (*models.User, error)      # Récupération de l'utilisateur à partir des informations de son token JWT décodé
+│   │   └─> func (u *Users) FindByID(ctx context.Context, id int64) (*models.User, error)       # Repository
+│   └─> func (s *Service) IsAuthenticated(ctx context.Context, user *models.User) bool          # Vérifie que la session de l'utilisateur est valide
+│       └─> func (t *Tokens) Get(ctx context.Context, user *models.User) (*models.Token, error) # Récupère le refresh_token de l'utilisateur
+└─> func (s *Server) DeleteUserRoute() http.HandlerFunc                                        # Handler HTTP
+    ├─> func (s *Service) DeleteRoute(ctx context.Context, routeId int64, user *models.User)   # Service
+    │   ├─> func (r *Routes) GetRouteUserById(ctx context.Context, userId, routeId int64)      # Repository - vérifie l'existence de la route
+    │   └─> func (r *Routes) DeleteRoute(ctx context.Context, routeId, userId int64)           # Repository - suppression de la route
+    └─> mathdeodrd.handler/func Encode[T any](v T, status int, w http.ResponseWriter) error    # Ecriture de la réponse avec une fonction générique
 ```
 </details>
