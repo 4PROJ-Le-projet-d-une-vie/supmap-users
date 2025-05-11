@@ -187,6 +187,48 @@ Cette API utilise un système d’authentification basé sur JWT (JSON Web Token
    - Cela invalide tous les tokens actifs (access + refresh). 
    - Un nouveau refresh_token sera généré au prochain login.
 
+## Migrations de base de données
+
+Les migrations permettent de versionner la structure de la base de données et de suivre son évolution au fil du temps.
+Elles garantissent que tous les environnements (développement, production, etc.) partagent le même schéma de base de données.
+
+Ce projet utilise [Goose](https://github.com/pressly/goose) pour gérer les migrations SQL. Les fichiers de migration sont stockés dans le dossier `migrations/changelog/` et sont embarqués dans le binaire grâce à la directive `//go:embed` dans [main.go](migrations/migrate.go).
+
+### Création d'une migration
+
+Pour créer une nouvelle migration, installez d'abord le CLI Goose :
+
+```sh
+go install github.com/pressly/goose/v3/cmd/goose@latest
+```
+
+Puis créez une nouvelle migration (la commande se base sur les variables du fichier .env) :
+```shell
+# Crée une migration vide
+goose -dir migrations/changelog create nom_de_la_migration sql
+
+# La commande génère un fichier horodaté dans migrations/changelog/
+# Example: 20240315143211_nom_de_la_migration.sql
+```
+
+### Exécution des migrations
+
+Les migrations sont exécutées automatiquement au démarrage du service via le package migrations :
+```go
+// Dans main.go
+if err := migrations.Migrate("pgx", conf.DbUrl, logger); err != nil {
+    logger.Error("migration failed", "err", err)
+}
+```
+
+Le package migrations utilise embed.FS pour embarquer les fichiers SQL dans le binaire :
+```go
+//go:embed changelog/*.sql
+var changelog embed.FS
+// Connexion à la base de données
+goose.SetBaseFS(changelog)
+```
+
 ## Endpoints
 
 Les endpoints ci-dessous sont présentés selon l'ordre dans lequel ils sont définit dans [server.go](internal/api/server.go)
